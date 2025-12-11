@@ -2,9 +2,9 @@
 name: CI
 
 on:
-  push:                         # when push
+  push:
     branches: [main, develop]
-  pull_request:                 # when pull_request
+  pull_request:
     branches: [main]
 
 env:
@@ -16,14 +16,14 @@ jobs:
   # Build Matrix: GCC and Clang with multiple configurations
   # ============================================================================
   build:
-    name: Build (${{ matrix.compiler }}, ${{ matrix.preset }})
-    runs-on: ubuntu-24.04             # system built on
-
+    name: Build (${{ matrix.compiler }}, ${{ matrix.build_type }})
+    runs-on: ubuntu-24.04
+    
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc-13, clang-17]  # planned compiler
-        preset: [debug, release]      # CMake preset names
+        compiler: [gcc-13, clang-17]
+        build_type: [Debug, Release]
         include:
           - compiler: gcc-13
             cc: gcc-13
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4     # ??
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -52,7 +52,6 @@ jobs:
           vcpkgGitCommitId: 'a1a1cbc975'  # Pin to specific version
 
       - name: Configure CMake
-             # planned CMake preset
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
