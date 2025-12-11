@@ -2,9 +2,9 @@
 name: CI
 
 on:
-  push:
+  push:                         # when push
     branches: [main, develop]
-  pull_request:
+  pull_request:                 # when pull_request
     branches: [main]
 
 env:
@@ -16,14 +16,14 @@ jobs:
   # Build Matrix: GCC and Clang with multiple configurations
   # ============================================================================
   build:
-    name: Build (${{ matrix.compiler }}, ${{ matrix.build_type }})
-    runs-on: ubuntu-24.04
-    
+    name: Build (${{ matrix.compiler }}, ${{ matrix.preset }})
+    runs-on: ubuntu-24.04             # system built on
+
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc-13, clang-17]
-        build_type: [Debug, Release]
+        compiler: [gcc-13, clang-17]  # planned compiler
+        preset: [debug, release]      # CMake preset names
         include:
           - compiler: gcc-13
             cc: gcc-13
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4     # ??
 
       - name: Install dependencies
         run: |
@@ -51,24 +51,17 @@ jobs:
         with:
           vcpkgGitCommitId: 'a1a1cbc975'  # Pin to specific version
 
-      - name: Configure CMake
+      - name: Configure CMake         # planned CMake preset
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-            -DSENSORSTREAMKIT_BUILD_TESTS=ON \
-            -DSENSORSTREAMKIT_BUILD_EXAMPLES=ON \
-            -G Ninja
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build --preset ${{ matrix.preset }} --parallel $(nproc)
 
       - name: Test
-        working-directory: build
-        run: ctest --output-on-failure --parallel $(nproc)
+        run: ctest --preset ${{ matrix.preset }} --parallel $(nproc)
 
   # ============================================================================
   # Code Coverage
@@ -76,7 +69,7 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-24.04
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,24 +88,17 @@ jobs:
         env:
           CC: gcc-13
           CXX: g++-13
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
-            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-            -DSENSORSTREAMKIT_BUILD_TESTS=ON \
-            -G Ninja
+        run: cmake --preset coverage
 
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build --preset coverage --parallel
 
       - name: Run tests
-        working-directory: build
-        run: ctest --output-on-failure
+        run: ctest --preset coverage
 
       - name: Generate coverage report
         run: |
-          lcov --capture --directory build --output-file coverage.info
+          lcov --capture --directory build/coverage --output-file coverage.info
           lcov --remove coverage.info '/usr/*' '*/vcpkg/*' '*/test/*' --output-file coverage.info
           lcov --list coverage.info
 
@@ -128,7 +114,7 @@ jobs:
   static-analysis:
     name: Static Analysis
     runs-on: ubuntu-24.04
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -136,17 +122,28 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-tidy-17 clang-format-17
+          sudo apt-get install -y \
+            cmake ninja-build \
+            clang-17 clang-tidy-17 clang-format-17 \
+            libzmq3-dev
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
 
       - name: Check formatting
         run: |
           find include src -name '*.cpp' -o -name '*.hpp' | \
             xargs clang-format-17 --dry-run --Werror
 
+      - name: Configure for analysis
+        env:
+          CC: clang-17
+          CXX: clang++-17
+        run: cmake --preset analysis
+
       - name: Run clang-tidy
         run: |
-          cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          clang-tidy-17 -p build $(find src -name '*.cpp') \
+          clang-tidy-17 -p build/analysis $(find src -name '*.cpp') \
             --checks='-*,modernize-*,performance-*,bugprone-*,cppcoreguidelines-*'
 
   # ============================================================================
@@ -155,7 +152,7 @@ jobs:
   docker:
     name: Docker Build
     runs-on: ubuntu-24.04
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,7 +177,7 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-24.04
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

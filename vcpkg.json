@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "sensorstreamkit",
+  "version": "1.0.0",
+  "description": "Modern C++20 library for real-time sensor data streaming with ZeroMQ and REST API",
+  "homepage": "https://github.com/coolwindjo/SensorStreamKit",
+  "license": "MIT",
+  "supports": "!uwp",
+  "dependencies": [
+    {
+      "name": "cppzmq",
+      "version>=": "4.10.0"
+    },
+    {
+      "name": "flatbuffers",
+      "version>=": "23.5.26"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.3"
+    },
+    {
+      "name": "gtest",
+      "version>=": "1.14.0"
+    },
+    {
+      "name": "benchmark",
+      "version>=": "1.8.3"
+    }
+  ],
+  "features": {
+    "tests": {
+      "description": "Build tests",
+      "dependencies": [
+        "gtest"
+      ]
+    },
+    "benchmarks": {
+      "description": "Build benchmarks",
+      "dependencies": [
+        "benchmark"
+      ]
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "ci-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "SENSORSTREAMKIT_BUILD_TESTS": "ON",
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "CI Debug Build",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "CI Release Build",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Code Coverage (gcov)",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "--coverage -fprofile-arcs -ftest-coverage",
+        "CMAKE_CXX_FLAGS": "--coverage -fprofile-arcs -ftest-coverage",
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
+      }
+    },
+    {
+      "name": "analysis",
+      "displayName": "Static Analysis (clang-tidy)",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
+    },
+    {
+      "name": "analysis",
+      "configurePreset": "analysis"
+    }
+  ],
+
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
