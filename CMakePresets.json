@@ -51,6 +51,16 @@
         "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
         "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
       }
+    },
+    {
+      "name": "docker-release",
+      "displayName": "Docker Production Build",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "ON"
+      }
     }
   ],
 
@@ -70,6 +80,10 @@
     {
       "name": "analysis",
       "configurePreset": "analysis"
+    },
+    {
+      "name": "docker-release",
+      "configurePreset": "docker-release"
     }
   ],
 

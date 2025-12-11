@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "sensorstreamkit",
   "version": "1.0.0",
+  "builtin-baseline": "5422eb983d4ca8bc4851ac9771d6e74554efc5c8",
   "description": "Modern C++20 library for real-time sensor data streaming with ZeroMQ and REST API",
   "homepage": "https://github.com/coolwindjo/SensorStreamKit",
   "license": "MIT",

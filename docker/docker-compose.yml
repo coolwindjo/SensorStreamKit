@@ -1,0 +1,140 @@
+# docker-compose.yml - Multi-container deployment for SensorStreamKit
+# Demonstrates ZeroMQ communication between containers with REST API
+#
+# Platform Notes:
+# - All services are configured to build for linux/amd64 for consistency
+# - This ensures vcpkg downloads the correct binaries regardless of host architecture
+# - On Apple Silicon (ARM64), Docker will use Rosetta 2 emulation
+
+# version: '3.8'
+
+services:
+  # ==========================================================================
+  # Sensor Server: Publishes sensor data via ZeroMQ, configurable via REST
+  # ==========================================================================
+  sensor-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    image: sensorstreamkit-server:latest
+    container_name: sensorstreamkit-server
+    ports:
+      - "8080:8080"     # REST API
+      - "5555:5555"     # ZeroMQ PUB socket
+    environment:
+      # Sensor configuration
+      - SENSOR_CAMERA_ENABLED=true
+      - SENSOR_CAMERA_RATE_HZ=30
+      - SENSOR_LIDAR_ENABLED=true
+      - SENSOR_LIDAR_RATE_HZ=10
+      - SENSOR_IMU_ENABLED=true
+      - SENSOR_IMU_RATE_HZ=100
+      # ZeroMQ settings
+      - ZMQ_PUB_ENDPOINT=tcp://*:5555
+      - ZMQ_HIGH_WATER_MARK=1000
+      # REST API settings
+      - REST_PORT=8080
+      - REST_HOST=0.0.0.0
+    networks:
+      - sensornet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Sensor Client: Subscribes to sensor data via ZeroMQ
+  # ==========================================================================
+  sensor-client:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.client
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    image: sensorstreamkit-client:latest
+    container_name: sensorstreamkit-client
+    depends_on:
+      sensor-server:
+        condition: service_healthy
+    environment:
+      - ZMQ_SUB_ENDPOINT=tcp://sensor-server:5555
+      - SUBSCRIBE_TOPICS=camera,lidar,imu
+      - LOG_LEVEL=info
+    networks:
+      - sensornet
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Development container with source mounted
+  # ==========================================================================
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      target: dev
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    image: sensorstreamkit-dev:latest
+    container_name: sensorstreamkit-dev
+    volumes:
+      - ..:/workspace:cached
+      - vcpkg-cache:/opt/vcpkg/packages
+    environment:
+      - CMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+    networks:
+      - sensornet
+    stdin_open: true
+    tty: true
+    # For debugging with GDB
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+  # ==========================================================================
+  # Prometheus for metrics collection (optional)
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sensorstreamkit-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - sensornet
+    profiles:
+      - monitoring
+
+  # ==========================================================================
+  # Grafana for visualization (optional)
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sensorstreamkit-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - sensornet
+    profiles:
+      - monitoring
+
+networks:
+  sensornet:
+    driver: bridge
+
+volumes:
+  vcpkg-cache:
+  grafana-data:
