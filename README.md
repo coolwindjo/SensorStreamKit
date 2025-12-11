@@ -29,35 +29,42 @@ Designed for rapid prototyping of sensor data pipelines in ADAS, robotics, and a
 ### Build from Source
 
 ```bash
-# Clone with vcpkg
+# Clone the repository
 git clone https://github.com/coolwindjo/SensorStreamKit.git
 cd SensorStreamKit
 
-# Configure and build
-cmake -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
-cmake --build build --parallel
+# Install dependencies via vcpkg (requires VCPKG_ROOT environment variable)
+$VCPKG_ROOT/vcpkg install
+
+# Configure and build using presets
+cmake --preset release
+cmake --build --preset release --parallel
 
 # Run tests
-ctest --test-dir build --output-on-failure
+ctest --preset release
 ```
 
 ### Docker Development
 
 ```bash
-# Start development environment
+# Build development image (use --platform for cross-architecture builds)
+# On Apple Silicon (ARM64), specify linux/amd64 for x64 target:
+docker build --platform linux/amd64 -f docker/Dockerfile.dev --target dev -t sensorstreamkit-dev .
+
+# Or use docker compose (platform is pre-configured in docker-compose.yml)
 cd docker
 docker compose up -d dev
 
 # Attach to container
 docker exec -it sensorstreamkit-dev bash
 
-# Inside container: build and test
-cmake -B build -G Ninja
-cmake --build build
-ctest --test-dir build
+# Inside container: build and test using presets
+cmake --preset debug
+cmake --build --preset debug --parallel
+ctest --preset debug
 ```
+
+> **Note**: The docker-compose.yml is configured with `platform: linux/amd64` for all services to ensure consistent builds across different host architectures (including Apple Silicon Macs).
 
 ### Run Full Demo
 
@@ -75,15 +82,25 @@ curl http://localhost:8080/sensors
 ### Basic Publisher
 
 ```cpp
-#include <sensorstreamkit/sensorstreamkit.hpp>
+#include "sensorstreamkit/core/message.hpp"
+#include "sensorstreamkit/transport/zmq_publisher.hpp"
 
 using namespace sensorstreamkit;
 using namespace sensorstreamkit::transport;
 
 int main() {
-    // Create publisher
-    ZmqPublisher publisher({.endpoint = "tcp://*:5555"});
-    publisher.bind();
+    // Configure publisher
+    PublisherConfig config{
+        .endpoint = "tcp://*:5555",
+        .high_water_mark = 1000,
+        .send_timeout_ms = 1000
+    };
+
+    // Create and bind publisher
+    ZmqPublisher publisher(config);
+    if (!publisher.bind()) {
+        return 1;
+    }
 
     // Publish camera data
     CameraFrameData frame{
@@ -105,14 +122,19 @@ int main() {
 ### Periodic Publisher with C++20 jthread
 
 ```cpp
-#include <sensorstreamkit/sensorstreamkit.hpp>
+#include "sensorstreamkit/core/message.hpp"
+#include "sensorstreamkit/transport/zmq_publisher.hpp"
+#include <thread>
 
 using namespace sensorstreamkit;
 using namespace sensorstreamkit::transport;
 
 int main() {
-    ZmqPublisher publisher({.endpoint = "tcp://*:5555"});
-    publisher.bind();
+    PublisherConfig config{.endpoint = "tcp://*:5555"};
+    ZmqPublisher publisher(config);
+    if (!publisher.bind()) {
+        return 1;
+    }
 
     // Generator function for simulated IMU data
     auto imu_generator = []() -> ImuData {
@@ -130,7 +152,7 @@ int main() {
 
     // Start periodic publishing at 100Hz
     PeriodicPublisher<ImuData> imu_pub(
-        publisher, "imu", imu_generator, 
+        publisher, "imu", imu_generator,
         std::chrono::milliseconds(10)
     );
     imu_pub.start();
@@ -142,9 +164,12 @@ int main() {
 }
 ```
 
-### REST API Configuration
+### REST API Configuration (Planned)
+
+> **Note**: REST API functionality is planned for a future release.
 
 ```cpp
+// Example of planned REST API (not yet implemented)
 #include <sensorstreamkit/api/rest_server.hpp>
 
 using namespace sensorstreamkit::api;
@@ -164,13 +189,6 @@ int main() {
         });
     });
 
-    // Start sensor by ID
-    server.post("/sensors/:id/start", [](const Request& req) {
-        auto sensor_id = req.path_param("id");
-        // Start sensor logic...
-        return Response::json({{"started", sensor_id}});
-    });
-
     // Blocks until stopped
     server.run();
 
@@ -182,24 +200,24 @@ int main() {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      REST API (Port 8080)                    │
+│                      REST API (Port 8080)                   │
 │  GET /health  │  GET /sensors  │  POST /sensors/:id/start   │
 └────────────────────────────┬────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────┐
-│                    SensorStreamKit Core                      │
+│                    SensorStreamKit Core                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
 │  │   Camera    │  │    LiDAR    │  │     IMU     │          │
 │  │   Sensor    │  │   Sensor    │  │   Sensor    │          │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
-│         │                │                │                  │
+│         │                │                │                 │
 │  ┌──────▼────────────────▼────────────────▼──────┐          │
-│  │           FlatBuffers Serialization            │          │
+│  │           FlatBuffers Serialization           │          │
 │  └──────────────────────┬────────────────────────┘          │
-│                         │                                    │
+│                         │                                   │
 │  ┌──────────────────────▼────────────────────────┐          │
-│  │              ZeroMQ PUB Socket                 │          │
-│  │              (tcp://*:5555)                    │          │
+│  │              ZeroMQ PUB Socket                │          │
+│  │              (tcp://*:5555)                   │          │
 │  └──────────────────────┬────────────────────────┘          │
 └─────────────────────────┼───────────────────────────────────┘
                           │
@@ -218,10 +236,12 @@ SensorStreamKit/
 ├── include/sensorstreamkit/    # Public headers
 │   ├── core/                   # Message types, serialization
 │   ├── transport/              # ZeroMQ wrappers
-│   ├── api/                    # REST server/client
-│   └── sensors/                # Sensor abstractions
+│   ├── api/                    # REST server/client (planned)
+│   └── sensors/                # Sensor abstractions (planned)
 ├── src/                        # Implementation
 ├── examples/                   # Usage examples
+│   ├── 01_simple_publisher/
+│   └── 02_simple_subscriber/
 ├── tests/                      # Unit & integration tests
 ├── docker/                     # Containerization
 ├── docs/                       # Documentation
