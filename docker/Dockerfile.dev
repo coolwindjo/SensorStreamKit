@@ -1,0 +1,130 @@
+# Dockerfile.dev - Development environment for SensorStreamKit
+# Modern C++20 with all dependencies
+#
+# Platform Notes:
+# - When building on ARM64 (Apple Silicon), use: docker build --platform linux/amd64 ...
+# - This ensures vcpkg downloads the correct CMake binary for the target architecture
+# - The triplet is auto-detected based on TARGETARCH, but can be overridden with --build-arg VCPKG_TRIPLET=<triplet>
+
+FROM ubuntu:24.04 AS base
+
+# Build argument for vcpkg triplet (auto-detected if not provided)
+# Supported values: x64-linux, arm64-linux
+ARG TARGETARCH
+ARG VCPKG_TRIPLET
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build essentials and C++20 toolchain
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    wget \
+    zip \
+    unzip \
+    pkg-config \
+    # C++20 compilers
+    gcc-13 \
+    g++-13 \
+    clang-17 \
+    # Development tools
+    gdb \
+    valgrind \
+    clang-format-17 \
+    clang-tidy-17 \
+    # ZeroMQ dependencies
+    libzmq3-dev \
+    # Other libs
+    libssl-dev \
+    # Python for scripts
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set default compiler to GCC 13
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 \
+    && update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 100 \
+    && update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 100
+
+# Install vcpkg
+ENV VCPKG_ROOT=/opt/vcpkg
+RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
+    && $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+
+# Install FlatBuffers compiler
+RUN wget https://github.com/google/flatbuffers/releases/download/v24.3.25/Linux.flatc.binary.g++-13.zip \
+    && unzip Linux.flatc.binary.g++-13.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/flatc \
+    && rm Linux.flatc.binary.g++-13.zip
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy vcpkg manifest and CMake presets, then install dependencies
+COPY vcpkg.json CMakePresets.json ./
+
+# Auto-detect vcpkg triplet based on target architecture if not explicitly provided
+# TARGETARCH is automatically set by Docker BuildKit based on --platform flag
+# If building on ARM64 host for x64 target, use: docker build --platform linux/amd64 ...
+RUN TRIPLET="$VCPKG_TRIPLET"; \
+    if [ -z "$TRIPLET" ]; then \
+        if [ "$TARGETARCH" = "amd64" ] || [ "$TARGETARCH" = "x86_64" ]; then \
+            TRIPLET="x64-linux"; \
+        elif [ "$TARGETARCH" = "arm64" ] || [ "$TARGETARCH" = "aarch64" ]; then \
+            TRIPLET="arm64-linux"; \
+        else \
+            # Fallback: detect from uname if TARGETARCH not set
+            ARCH=$(uname -m); \
+            if [ "$ARCH" = "x86_64" ]; then \
+                TRIPLET="x64-linux"; \
+            elif [ "$ARCH" = "aarch64" ]; then \
+                TRIPLET="arm64-linux"; \
+            else \
+                echo "ERROR: Unsupported architecture: $ARCH. Please specify VCPKG_TRIPLET build arg."; \
+                exit 1; \
+            fi; \
+        fi; \
+    fi && \
+    echo "Detected TARGETARCH: ${TARGETARCH:-$(uname -m)}" && \
+    echo "Using vcpkg triplet: $TRIPLET" && \
+    $VCPKG_ROOT/vcpkg install --triplet=$TRIPLET
+
+# Development image with source mounted
+FROM base AS dev
+
+# Set up environment
+ENV PATH="${VCPKG_ROOT}:${PATH}"
+ENV CMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+
+# Default command
+CMD ["/bin/bash"]
+
+# ============================================================================
+# Production build stage
+# ============================================================================
+FROM base AS builder
+
+COPY . /workspace
+RUN cmake --preset docker-release
+RUN cmake --build --preset docker-release --parallel
+
+# ============================================================================
+# Runtime image (minimal)
+# ============================================================================
+FROM ubuntu:24.04 AS runtime
+
+RUN apt-get update && apt-get install -y \
+    libzmq5 \
+    libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /workspace/build/docker-release/examples/ /app/
+WORKDIR /app
+
+# Example: run the sensor server
+# CMD ["./06_full_system_demo/sensor_server"]
