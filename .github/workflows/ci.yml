@@ -1,0 +1,203 @@
+# .github/workflows/ci.yml - Continuous Integration for SensorStreamKit
+name: CI
+
+on:
+  push:                         # when push
+    branches: [main, develop]
+  pull_request:                 # when pull_request
+    branches: [main]
+
+env:
+  BUILD_TYPE: Release
+  VCPKG_DEFAULT_TRIPLET: x64-linux
+
+jobs:
+  # ============================================================================
+  # Build Matrix: GCC and Clang with multiple configurations
+  # ============================================================================
+  build:
+    name: Build (${{ matrix.compiler }}, ${{ matrix.preset }})
+    runs-on: ubuntu-24.04             # system built on
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc-13, clang-17]  # planned compiler
+        preset: [debug, release]      # CMake preset names
+        include:
+          - compiler: gcc-13
+            cc: gcc-13
+            cxx: g++-13
+          - compiler: clang-17
+            cc: clang-17
+            cxx: clang++-17
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4     # ??
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            gcc-13 g++-13 clang-17 \
+            libzmq3-dev \
+            libgtest-dev \
+            libgmock-dev
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'a1a1cbc975'  # Pin to specific version
+
+      - name: Configure CMake
+             # planned CMake preset
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+            -DSENSORSTREAMKIT_BUILD_TESTS=ON \
+            -DSENSORSTREAMKIT_BUILD_EXAMPLES=ON \
+            -G Ninja
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure --parallel $(nproc)
+
+  # ============================================================================
+  # Code Coverage
+  # ============================================================================
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-24.04
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build gcc-13 g++-13 \
+            libzmq3-dev libgtest-dev lcov
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Configure with coverage
+        env:
+          CC: gcc-13
+          CXX: g++-13
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+            -DSENSORSTREAMKIT_BUILD_TESTS=ON \
+            -G Ninja
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run tests
+        working-directory: build
+        run: ctest --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/vcpkg/*' '*/test/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.info
+          fail_ci_if_error: true
+
+  # ============================================================================
+  # Static Analysis
+  # ============================================================================
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-24.04
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy-17 clang-format-17
+
+      - name: Check formatting
+        run: |
+          find include src -name '*.cpp' -o -name '*.hpp' | \
+            xargs clang-format-17 --dry-run --Werror
+
+      - name: Run clang-tidy
+        run: |
+          cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          clang-tidy-17 -p build $(find src -name '*.cpp') \
+            --checks='-*,modernize-*,performance-*,bugprone-*,cppcoreguidelines-*'
+
+  # ============================================================================
+  # Docker Build
+  # ============================================================================
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-24.04
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build development image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.dev
+          target: dev
+          push: false
+          tags: sensorstreamkit:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # Documentation
+  # ============================================================================
+  docs:
+    name: Documentation
+    runs-on: ubuntu-24.04
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Doxygen
+        run: sudo apt-get install -y doxygen graphviz
+
+      - name: Generate docs
+        run: |
+          doxygen Doxyfile 2>&1 | tee doxygen.log
+          if grep -q "warning:" doxygen.log; then
+            echo "::warning::Doxygen warnings found"
+          fi
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/html/
