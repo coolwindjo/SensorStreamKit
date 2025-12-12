@@ -62,6 +62,45 @@ chore: update vcpkg baseline to latest
 perf: optimize FlatBuffers serialization buffer reuse
 ```
 
+## Pull Request Commit Guidelines
+
+When submitting pull requests, follow these cost-effective rules to keep the commit history clean and reviewable:
+
+### Squash Small Changes
+
+- Combine related small commits into a single meaningful commit
+- Avoid commits like "fix typo", "oops", "WIP" in the final PR
+- Use `git rebase -i` to squash before submitting
+
+### One Logical Change Per Commit
+
+- Each commit should represent one complete, working change
+- Don't mix unrelated changes in a single commit
+- If a commit requires another commit to work, squash them together
+
+### Keep PRs Focused
+
+- One feature or fix per pull request
+- Smaller PRs are easier to review and merge faster
+- Split large changes into incremental PRs when possible
+
+### Before Submitting
+
+1. Rebase onto the latest main branch
+2. Ensure each commit passes tests independently
+3. Review your own diff before requesting review
+4. Write a clear PR description summarizing all changes
+
+### PR Title Format
+
+Follow the same conventional commit format for PR titles:
+
+```
+<type>: <concise description>
+```
+
+Example: `feat: add WebSocket transport layer`
+
 ## Development Workflow
 
 1. Fork the repository
