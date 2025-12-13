@@ -19,7 +19,11 @@
       "displayName": "CI Debug Build",
       "inherits": "ci-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+
+        "_comment": "Disable tests and examples for faster CI builds",
+        "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
       }
     },
     {
