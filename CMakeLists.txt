@@ -42,49 +42,53 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(httplib)
 
 # ============================================================================
-# Main Library
+# Main Library (Header-Only for now)
 # ============================================================================
-add_library(sensorstreamkit
-    src/core/message.cpp
-    src/core/serialization.cpp
-    src/transport/zmq_publisher.cpp
-    src/transport/zmq_subscriber.cpp
-    src/api/rest_server.cpp
-    src/sensors/camera_sensor.cpp
-    src/sensors/lidar_sensor.cpp
-    src/sensors/imu_sensor.cpp
-)
+# add_library(sensorstreamkit
+add_library(sensorstreamkit INTERFACE)
+#     src/core/message.cpp
+#     src/core/serialization.cpp
+#     src/transport/zmq_publisher.cpp
+#     src/transport/zmq_subscriber.cpp
+#     src/api/rest_server.cpp
+#     src/sensors/camera_sensor.cpp
+#     src/sensors/lidar_sensor.cpp
+#     src/sensors/imu_sensor.cpp
+# )
 
 target_include_directories(sensorstreamkit
-    PUBLIC
+    # PUBLIC
+    INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    # PRIVATE
+    #     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(sensorstreamkit
-    PUBLIC
+    # PUBLIC
+    INTERFACE
         cppzmq
         flatbuffers::flatbuffers
         nlohmann_json::nlohmann_json
         httplib::httplib
 )
 
-target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
+# target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
+target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
 
-# Compiler warnings
-target_compile_options(sensorstreamkit PRIVATE
-    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
-    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
-)
+# # Compiler warnings
+# target_compile_options(sensorstreamkit PRIVATE
+#     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
+#     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
+# )
 
 # ============================================================================
 # FlatBuffers Schema Generation
 # ============================================================================
-set(FLATBUFFERS_SCHEMAS
-    ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
-)
+# set(FLATBUFFERS_SCHEMAS
+#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
+# )
 
 # Generate FlatBuffers headers (run manually or add custom command)
 # flatc --cpp -o ${CMAKE_CURRENT_SOURCE_DIR}/include/sensorstreamkit/generated ${FLATBUFFERS_SCHEMAS}
@@ -92,57 +96,57 @@ set(FLATBUFFERS_SCHEMAS
 # ============================================================================
 # Examples
 # ============================================================================
-if(SENSORSTREAMKIT_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
+# if(SENSORSTREAMKIT_BUILD_EXAMPLES)
+#     add_subdirectory(examples)
+# endif()
 
 # ============================================================================
 # Tests
 # ============================================================================
-if(SENSORSTREAMKIT_BUILD_TESTS)
-    enable_testing()
-    find_package(GTest REQUIRED)
-    add_subdirectory(tests)
-endif()
+# if(SENSORSTREAMKIT_BUILD_TESTS)
+#     enable_testing()
+#     find_package(GTest REQUIRED)
+#     add_subdirectory(tests)
+# endif()
 
 # ============================================================================
 # Installation
 # ============================================================================
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
+# include(GNUInstallDirs)
+# include(CMakePackageConfigHelpers)
 
-install(TARGETS sensorstreamkit
-    EXPORT SensorStreamKitTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# install(TARGETS sensorstreamkit
+#     EXPORT SensorStreamKitTargets
+#     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# )
 
-install(DIRECTORY include/sensorstreamkit
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# install(DIRECTORY include/sensorstreamkit
+#     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# )
 
-install(EXPORT SensorStreamKitTargets
-    FILE SensorStreamKitTargets.cmake
-    NAMESPACE SensorStreamKit::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
-)
+# install(EXPORT SensorStreamKitTargets
+#     FILE SensorStreamKitTargets.cmake
+#     NAMESPACE SensorStreamKit::
+#     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
+# )
 
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/SensorStreamKitConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
-)
+# configure_package_config_file(
+#     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/SensorStreamKitConfig.cmake.in
+#     ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfig.cmake
+#     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
+# )
 
-write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfigVersion.cmake
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
+# write_basic_package_version_file(
+#     ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfigVersion.cmake
+#     VERSION ${PROJECT_VERSION}
+#     COMPATIBILITY SameMajorVersion
+# )
 
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
-)
+# install(FILES
+#     ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfig.cmake
+#     ${CMAKE_CURRENT_BINARY_DIR}/SensorStreamKitConfigVersion.cmake
+#     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SensorStreamKit
+# )
