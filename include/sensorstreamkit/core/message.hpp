@@ -23,7 +23,6 @@ namespace sensorstreamkit::core {
 // ============================================================================
 
 using ConstPayload = std::span<const uint8_t>;
-// using Payload = std::span<uint8_t>;
 
 // ===========================================================================
 // Concepts for Type Safety
@@ -34,7 +33,7 @@ using ConstPayload = std::span<const uint8_t>;
  */
 template <typename T>
 concept Serializable = requires(const T& t, std::vector<uint8_t>& buffer) {
-    { t.serialize(buffer) } -> std::same_as<ConstPayload>;
+    { t.serialize(buffer) } -> std::same_as<void>;
     { T::deserialize(ConstPayload{}) } -> std::same_as<std::optional<T>>;
 };
 
@@ -105,7 +104,7 @@ struct MessageHeader {
                                               sizeof(message_type) +
                                               sizeof(reserved);
 
-    ConstPayload serialize(std::vector<uint8_t>& buffer) const;
+    void serialize(std::vector<uint8_t>& buffer) const;
     static std::optional<MessageHeader> deserialize(ConstPayload data);
 };
 
@@ -129,18 +128,9 @@ public:
     [[nodiscard]] const T& payload() const noexcept { return payload_; }
     [[nodiscard]] T& payload() noexcept { return payload_; }
 
-    ConstPayload serialize(std::vector<uint8_t>& buffer) const {
-        // Resize buffer to exact size needed
-        buffer.resize(MessageHeader::serialized_size);
-        auto header_span = header_.serialize(buffer);
-
-        // Extend buffer for payload and serialize
-        const size_t header_size = buffer.size();
-        std::vector<uint8_t> payload_buffer;
-        auto payload_span = payload_.serialize(payload_buffer);
-
-        buffer.insert(buffer.end(), payload_buffer.begin(), payload_buffer.end());
-        return ConstPayload(buffer.data(), buffer.size());
+    void serialize(std::vector<uint8_t>& buffer) const {
+        header_.serialize(buffer);
+        payload_.serialize(buffer);
     }
 
     static std::optional<Message<T>> deserialize(ConstPayload data) {
@@ -187,7 +177,7 @@ struct CameraFrameData {
     [[nodiscard]] uint64_t timestamp_ns() const noexcept { return timestamp_ns_; }
     [[nodiscard]] std::string_view sensor_id() const noexcept { return sensor_id_; }
 
-    ConstPayload serialize(std::vector<uint8_t>& buffer) const;
+    void serialize(std::vector<uint8_t>& buffer) const;
     static std::optional<CameraFrameData> deserialize(ConstPayload data);
 };
 
@@ -203,7 +193,7 @@ struct LidarScanData {
     [[nodiscard]] uint64_t timestamp_ns() const noexcept { return timestamp_ns_; }
     [[nodiscard]] std::string_view sensor_id() const noexcept { return sensor_id_; }
 
-    ConstPayload serialize(std::vector<uint8_t>& buffer) const;
+    void serialize(std::vector<uint8_t>& buffer) const;
     static std::optional<LidarScanData> deserialize(ConstPayload data);
 };
 
@@ -226,7 +216,7 @@ struct ImuData {
     [[nodiscard]] uint64_t timestamp_ns() const noexcept { return timestamp_ns_; }
     [[nodiscard]] std::string_view sensor_id() const noexcept { return sensor_id_; }
 
-    ConstPayload serialize(std::vector<uint8_t>& buffer) const;
+    void serialize(std::vector<uint8_t>& buffer) const;
     static std::optional<ImuData> deserialize(ConstPayload data);
 };
 
