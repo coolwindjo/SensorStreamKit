@@ -41,46 +41,42 @@ find_package(nlohmann_json REQUIRED)
 find_package(httplib REQUIRED)
 
 # ============================================================================
-# Main Library (Header-Only for now)
+# Main Library
 # ============================================================================
-# add_library(sensorstreamkit
-add_library(sensorstreamkit INTERFACE)
-#     src/core/message.cpp
+add_library(sensorstreamkit
+    src/sensorstreamkit/core/message.cpp
 #     src/core/serialization.cpp
-#     src/transport/zmq_publisher.cpp
+    src/sensorstreamkit/transport/zmq_publisher.cpp
 #     src/transport/zmq_subscriber.cpp
 #     src/api/rest_server.cpp
 #     src/sensors/camera_sensor.cpp
 #     src/sensors/lidar_sensor.cpp
 #     src/sensors/imu_sensor.cpp
-# )
+)
 
 target_include_directories(sensorstreamkit
-    # PUBLIC
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-    # PRIVATE
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(sensorstreamkit
-    # PUBLIC
-    INTERFACE
+    PUBLIC
         cppzmq
         flatbuffers::flatbuffers
         nlohmann_json::nlohmann_json
         httplib::httplib
 )
 
-# target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
-target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
+target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
 
-# # Compiler warnings
-# target_compile_options(sensorstreamkit PRIVATE
-#     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
-#     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
-# )
+# Compiler warnings
+target_compile_options(sensorstreamkit PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
+)
 
 # Debug/Release specific options
 target_compile_options(sensorstreamkit PRIVATE
@@ -92,9 +88,9 @@ target_compile_options(sensorstreamkit PRIVATE
 # ============================================================================
 # FlatBuffers Schema Generation
 # ============================================================================
-# set(FLATBUFFERS_SCHEMAS
-#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
-# )
+set(FLATBUFFERS_SCHEMAS
+    ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
+)
 
 # Generate FlatBuffers headers (run manually or add custom command)
 # flatc --cpp -o ${CMAKE_CURRENT_SOURCE_DIR}/include/sensorstreamkit/generated ${FLATBUFFERS_SCHEMAS}
