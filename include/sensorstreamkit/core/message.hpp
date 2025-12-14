@@ -7,6 +7,7 @@
  * @date 2025
  */
 
+#include <atomic>
 #include <chrono>
 #include <concepts>
 #include <cstdint>
@@ -153,9 +154,10 @@ private:
     MessageHeader header_;
     T payload_;
 
+    // Generate next sequence number atomically
     static uint32_t next_sequence() {
-        static uint32_t seq = 0;
-        return seq++;
+        static std::atomic<uint32_t> sequence_counter{0};
+        return sequence_counter.fetch_add(1, std::memory_order_relaxed);
     }
 };
 
