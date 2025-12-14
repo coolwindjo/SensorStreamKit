@@ -17,6 +17,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Export compile commands for IDE support
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 # ============================================================================
 # Options
 # ============================================================================
@@ -26,20 +33,12 @@ option(SENSORSTREAMKIT_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(SENSORSTREAMKIT_ENABLE_COVERAGE "Enable code coverage" OFF)
 
 # ============================================================================
-# Dependencies via vcpkg (recommended) or find_package
+# Dependencies via vcpkg
 # ============================================================================
 find_package(cppzmq REQUIRED)
 find_package(flatbuffers REQUIRED)
 find_package(nlohmann_json REQUIRED)
-
-# cpp-httplib is header-only, fetch if not found
-include(FetchContent)
-FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.15.3
-)
-FetchContent_MakeAvailable(httplib)
+find_package(httplib REQUIRED)
 
 # ============================================================================
 # Main Library (Header-Only for now)
@@ -83,6 +82,13 @@ target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
 #     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
 # )
 
+# Debug/Release specific options
+target_compile_options(sensorstreamkit PRIVATE
+    $<$<CONFIG:Debug>:-g3 -O0 -DDEBUG>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-g -O2>
+)
+
 # ============================================================================
 # FlatBuffers Schema Generation
 # ============================================================================
@@ -103,11 +109,11 @@ target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
 # ============================================================================
 # Tests
 # ============================================================================
-# if(SENSORSTREAMKIT_BUILD_TESTS)
-#     enable_testing()
-#     find_package(GTest REQUIRED)
-#     add_subdirectory(tests)
-# endif()
+if(SENSORSTREAMKIT_BUILD_TESTS)
+    enable_testing()
+    find_package(GTest REQUIRED)
+    add_subdirectory(tests)
+endif()
 
 # ============================================================================
 # Installation

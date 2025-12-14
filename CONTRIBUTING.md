@@ -106,16 +106,21 @@ Example: `feat: add WebSocket transport layer`
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Make your changes
-4. Run tests (`ctest --preset debug`)
+4. Run tests (`cmake --workflow --preset debug`)
 5. Commit with conventional commit message
 6. Push and create a Pull Request
 
 ## Code Style
 
 - Follow modern C++20 idioms
-- Use `clang-format` for formatting (config provided)
-- Run `clang-tidy` for static analysis
+- Use `clang-format` for formatting (Google style, 100 column limit)
 
 ## Building
 
-See [README.md](README.md) for build instructions.
+```bash
+# Debug build with tests
+cmake --workflow --preset debug
+
+# Release build
+cmake --workflow --preset release
+```

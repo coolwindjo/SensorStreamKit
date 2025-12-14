@@ -1,96 +1,82 @@
 {
   "version": 6,
   "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
-
   "configurePresets": [
     {
-      "name": "ci-base",
+      "name": "base",
       "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "debug-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
         "SENSORSTREAMKIT_BUILD_TESTS": "ON",
-        "SENSORSTREAMKIT_BUILD_EXAMPLES": "ON"
-      }
-    },
-    {
-      "name": "debug",
-      "displayName": "CI Debug Build",
-      "inherits": "ci-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-
-        "_comment": "Disable tests and examples for faster CI builds",
-        "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
         "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
       }
     },
     {
-      "name": "release",
-      "displayName": "CI Release Build",
-      "inherits": "ci-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "coverage",
-      "displayName": "Code Coverage (gcov)",
-      "inherits": "ci-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS": "--coverage -fprofile-arcs -ftest-coverage",
-        "CMAKE_CXX_FLAGS": "--coverage -fprofile-arcs -ftest-coverage",
-        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
-      }
-    },
-    {
-      "name": "analysis",
-      "displayName": "Static Analysis (clang-tidy)",
-      "inherits": "ci-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
-        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
-      }
-    },
-    {
-      "name": "docker-release",
-      "displayName": "Docker Production Build",
-      "inherits": "ci-base",
+      "name": "release-base",
+      "hidden": true,
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "SENSORSTREAMKIT_BUILD_TESTS": "OFF",
         "SENSORSTREAMKIT_BUILD_EXAMPLES": "ON"
       }
-    }
-  ],
-
-  "buildPresets": [
+    },
+    {
+      "name": "vcpkg",
+      "hidden": true,
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    },
     {
       "name": "debug",
+      "displayName": "Debug",
+      "inherits": "debug-base"
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "inherits": "release-base"
+    },
+    {
+      "name": "debug-vcpkg",
+      "displayName": "Debug (vcpkg)",
+      "inherits": ["debug-base", "vcpkg"]
+    },
+    {
+      "name": "release-vcpkg",
+      "displayName": "Release (vcpkg)",
+      "inherits": ["release-base", "vcpkg"]
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "base-build",
+      "hidden": true,
+      "jobs": 4
+    },
+    {
+      "name": "debug",
+      "inherits": "base-build",
       "configurePreset": "debug"
     },
     {
       "name": "release",
+      "inherits": "base-build",
       "configurePreset": "release"
-    },
-    {
-      "name": "coverage",
-      "configurePreset": "coverage"
-    },
-    {
-      "name": "analysis",
-      "configurePreset": "analysis"
-    },
-    {
-      "name": "docker-release",
-      "configurePreset": "docker-release"
     }
   ],
-
   "testPresets": [
     {
       "name": "debug",
@@ -98,20 +84,23 @@
       "output": {
         "outputOnFailure": true
       }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" },
+        { "type": "test", "name": "debug" }
+      ]
     },
     {
       "name": "release",
-      "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "coverage",
-      "configurePreset": "coverage",
-      "output": {
-        "outputOnFailure": true
-      }
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" }
+      ]
     }
   ]
 }

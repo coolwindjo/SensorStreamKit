@@ -25,8 +25,8 @@
       "version>=": "1.14.0"
     },
     {
-      "name": "benchmark",
-      "version>=": "1.8.3"
+      "name": "cpp-httplib",
+      "version>=": "0.14.0"
     }
   ],
   "features": {
@@ -39,7 +39,10 @@
     "benchmarks": {
       "description": "Build benchmarks",
       "dependencies": [
-        "benchmark"
+        {
+          "name": "benchmark",
+          "version>=": "1.8.3"
+        }
       ]
     }
   }

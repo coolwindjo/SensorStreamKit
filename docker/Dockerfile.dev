@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y \
     clang-17 \
     # Development tools
     gdb \
+    lldb-15 \
     valgrind \
     clang-format-17 \
     clang-tidy-17 \
