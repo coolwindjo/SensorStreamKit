@@ -115,7 +115,7 @@ ConstPayload LidarScanData::serialize(std::vector<uint8_t>& buffer) const {
     const size_t required_size = sizeof(uint32_t) + sensor_id_.size() +
                                  sizeof(timestamp_ns_) +
                                  sizeof(num_points) +
-                                 sizeof(scan_duration_ms)
+                                 sizeof(scan_duration_ms);
 
     // Resize buffer to exact size needed - eliminates sizing errors
     size_t offset = buffer.size();

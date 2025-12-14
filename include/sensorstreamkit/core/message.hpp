@@ -7,6 +7,7 @@
  * @date 2025
  */
 
+#include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <optional>
@@ -66,7 +67,7 @@ public:
     // using duration = clock_type::duration;
 
     Timestamp() noexcept : tp_(clock_type::now()) {}
-    explicit Timestamp(uint64_t ns) noexcept 
+    explicit Timestamp(uint64_t ns) noexcept
         : tp_(time_point(std::chrono::nanoseconds(ns))) {}
 
     [[nodiscard]] uint64_t nanoseconds() const noexcept {
@@ -119,8 +120,8 @@ template <SensorDataType T>
 class Message {
 public:
     Message() = default;
-    
-    explicit Message(T payload) 
+
+    explicit Message(T payload)
         : header_{Timestamp::now().nanoseconds(), next_sequence(), 0, 0}
         , payload_(std::move(payload)) {}
 
@@ -144,15 +145,14 @@ public:
 
     static std::optional<Message<T>> deserialize(ConstPayload data) {
         if (data.size() < MessageHeader::serialized_size) {
-            return std::nullopt;
-        }
-        
+            return std::nullopt; }
+
         auto header = MessageHeader::deserialize(data.subspan(0, MessageHeader::serialized_size));
         if (!header) return std::nullopt;
-        
+
         auto payload = T::deserialize(data.subspan(MessageHeader::serialized_size));
         if (!payload) return std::nullopt;
-        
+
         Message<T> msg;
         msg.header_ = *header;
         msg.payload_ = std::move(*payload);
@@ -221,7 +221,7 @@ struct ImuData {
     // Angular velocity (rad/s)
     float gyro_x{0.0f};
     float gyro_y{0.0f};
-    float gyro_z{0.0f}; 
+    float gyro_z{0.0f};
 
     [[nodiscard]] uint64_t timestamp_ns() const noexcept { return timestamp_ns_; }
     [[nodiscard]] std::string_view sensor_id() const noexcept { return sensor_id_; }
