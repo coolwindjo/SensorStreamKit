@@ -21,7 +21,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "SENSORSTREAMKIT_BUILD_TESTS": "ON",
-        "SENSORSTREAMKIT_BUILD_EXAMPLES": "OFF"
+        "SENSORSTREAMKIT_BUILD_EXAMPLES": "ON"
       }
     },
     {

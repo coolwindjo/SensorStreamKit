@@ -45,9 +45,9 @@ find_package(httplib REQUIRED)
 # ============================================================================
 add_library(sensorstreamkit
     src/sensorstreamkit/core/message.cpp
-#     src/core/serialization.cpp
     src/sensorstreamkit/transport/zmq_publisher.cpp
-#     src/transport/zmq_subscriber.cpp
+    src/sensorstreamkit/transport/zmq_subscriber.cpp
+#     src/core/serialization.cpp
 #     src/api/rest_server.cpp
 #     src/sensors/camera_sensor.cpp
 #     src/sensors/lidar_sensor.cpp
@@ -98,9 +98,9 @@ set(FLATBUFFERS_SCHEMAS
 # ============================================================================
 # Examples
 # ============================================================================
-# if(SENSORSTREAMKIT_BUILD_EXAMPLES)
-#     add_subdirectory(examples)
-# endif()
+if(SENSORSTREAMKIT_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 # ============================================================================
 # Tests

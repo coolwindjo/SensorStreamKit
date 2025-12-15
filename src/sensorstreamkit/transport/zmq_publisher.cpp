@@ -67,9 +67,9 @@ bool ZmqPublisher::publish_raw(std::string_view topic, std::span<const uint8_t> 
 
     try {
         zmq::message_t topic_msg(topic.data(), topic.size());
-        zmq::message_t data_msg(data.data(), data.size());
-
         socket_->send(topic_msg, zmq::send_flags::sndmore);
+
+        zmq::message_t data_msg(data.data(), data.size());
         socket_->send(data_msg, zmq::send_flags::none);
 
         messages_sent_.fetch_add(1, std::memory_order_relaxed);
