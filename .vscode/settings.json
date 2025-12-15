@@ -1,0 +1,83 @@
+{
+    "files.exclude": {
+        "SensorStreamKit_source": true
+    },
+    "cSpell.words": [
+        "buildsystems",
+        "chrono",
+        "cppzmq",
+        "ctest",
+        "demangle",
+        "elif",
+        "flatbuffers",
+        "flatc",
+        "gdbinit",
+        "httplib",
+        "jthread",
+        "libstdc",
+        "libzmq",
+        "lldb",
+        "lldbinit",
+        "nlohmann",
+        "noninteractive",
+        "rcvhwm",
+        "readelf",
+        "Ryzen",
+        "seccomp",
+        "sensorstreamkit",
+        "vtbl"
+    ],
+
+    // C++ Configuration
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.default.cppStandard": "c++20",
+    "C_Cpp.default.intelliSenseMode": "macos-clang-arm64",
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++",
+
+    // CMake Configuration
+    "cmake.configureOnOpen": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.useCMakePresets": "always",
+    "cmake.defaultConfigurePreset": "debug",
+    "cmake.defaultBuildPreset": "debug",
+    "cmake.defaultTestPreset": "debug",
+
+    // Editor Settings
+    "files.associations": {
+        "*.hpp": "cpp",
+        "*.cpp": "cpp"
+    },
+
+    // Code Formatting
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 100 }",
+
+    // Search/Files
+    "search.exclude": {
+        "**/build/vcpkg_installed": true,
+        "**/build/_deps": true,
+        "**/build/CMakeFiles": true
+    },
+
+    // Diagnostics
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.enhancedColorization": "enabled",
+
+    // Fix GoogleTest macro parsing issues
+    "C_Cpp.intelliSenseEngineFallback": "enabled",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+
+    // Test Explorer Configuration
+    "C_Cpp.testExplorer.enabled": false,  // Disable "Current File Tests" - use TestMate C++ instead
+    "C_Cpp.testExplorer.filter": "**/{test_*,*_test}.{cpp,cc,c++,cxx}",
+    "testMate.cpp.test.executables": "build/tests/{test_*,*_test}",
+    "testMate.cpp.log.logpanel": true,
+    "testMate.cpp.debug.configTemplate": {
+        "type": "cppdbg",
+        "MIMode": "lldb",
+        "program": "${exec}",
+        "args": "${argsArray}",
+        "cwd": "${workspaceFolder}"
+    }
+}
