@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [gcc-13, clang-17]
-        preset: [debug, release]
+        preset: [debug-vcpkg, release-vcpkg]
         include:
           - compiler: gcc-13
             cc: gcc-13
@@ -36,13 +36,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build \
-            gcc-13 g++-13 clang-17 \
-            libzmq3-dev libgtest-dev
+            gcc-13 g++-13 clang-17
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 'a1a1cbc975'
+          vcpkgGitCommitId: '74e6536215718009aae747d86d84b78376bf9e09'
 
       - name: Configure
         env:
@@ -51,10 +50,10 @@ jobs:
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} -j4
+        run: cmake --build build -j4
 
       - name: Test
-        run: ctest --preset ${{ matrix.preset }}
+        run: ctest --test-dir build --output-on-failure
 
   docker:
     name: Docker Build
