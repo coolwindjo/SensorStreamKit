@@ -8,7 +8,7 @@
 
 namespace sensorstreamkit::core {
 
-ConstPayload MessageHeader::serialize(std::vector<uint8_t>& buffer) const {
+void MessageHeader::serialize(std::vector<uint8_t>& buffer) const {
     // Resize buffer to exact size needed - eliminates sizing errors
     const size_t offset = buffer.size();
     buffer.resize(offset + serialized_size);
@@ -17,8 +17,6 @@ ConstPayload MessageHeader::serialize(std::vector<uint8_t>& buffer) const {
     std::memcpy(buffer.data() + offset + 8, &sequence_number, sizeof(sequence_number));
     std::memcpy(buffer.data() + offset + 12, &message_type, sizeof(message_type));
     std::memcpy(buffer.data() + offset + 14, &reserved, sizeof(reserved));
-
-    return ConstPayload(buffer.data(), buffer.size());
 }
 
 std::optional<MessageHeader> MessageHeader::deserialize(ConstPayload data) {
@@ -35,7 +33,7 @@ std::optional<MessageHeader> MessageHeader::deserialize(ConstPayload data) {
     return header;
 }
 
-ConstPayload CameraFrameData::serialize(std::vector<uint8_t>& buffer) const {
+void CameraFrameData::serialize(std::vector<uint8_t>& buffer) const {
     const size_t required_size = sizeof(uint32_t) + sensor_id_.size() +
                                  sizeof(timestamp_ns_) +
                                  sizeof(frame_id) +
@@ -68,8 +66,6 @@ ConstPayload CameraFrameData::serialize(std::vector<uint8_t>& buffer) const {
     std::memcpy(buffer.data() + offset, &enc_len, sizeof(enc_len));
     offset += sizeof(enc_len);
     std::memcpy(buffer.data() + offset, encoding.data(), encoding.size());
-
-    return ConstPayload(buffer.data(), buffer.size());
 }
 
 std::optional<CameraFrameData> CameraFrameData::deserialize(ConstPayload data) {
@@ -89,7 +85,8 @@ std::optional<CameraFrameData> CameraFrameData::deserialize(ConstPayload data) {
 
     // Deserialize fixed fields
     if (data.size() < offset + sizeof(result.timestamp_ns_) + sizeof(result.frame_id) +
-                      sizeof(result.width) + sizeof(result.height)) return std::nullopt;
+                          sizeof(result.width) + sizeof(result.height))
+        return std::nullopt;
 
     std::memcpy(&result.timestamp_ns_, data.data() + offset, sizeof(result.timestamp_ns_));
     offset += sizeof(result.timestamp_ns_);
@@ -111,11 +108,11 @@ std::optional<CameraFrameData> CameraFrameData::deserialize(ConstPayload data) {
     return result;
 }
 
-ConstPayload LidarScanData::serialize(std::vector<uint8_t>& buffer) const {
+void LidarScanData::serialize(std::vector<uint8_t>& buffer) const {
     const size_t required_size = sizeof(uint32_t) + sensor_id_.size() +
                                  sizeof(timestamp_ns_) +
                                  sizeof(num_points) +
-                                 sizeof(scan_duration_ms)
+                                 sizeof(scan_duration_ms);
 
     // Resize buffer to exact size needed - eliminates sizing errors
     size_t offset = buffer.size();
@@ -134,8 +131,6 @@ ConstPayload LidarScanData::serialize(std::vector<uint8_t>& buffer) const {
     std::memcpy(buffer.data() + offset, &num_points, sizeof(num_points));
     offset += sizeof(num_points);
     std::memcpy(buffer.data() + offset, &scan_duration_ms, sizeof(scan_duration_ms));
-
-    return ConstPayload(buffer.data(), buffer.size());
 }
 
 std::optional<LidarScanData> LidarScanData::deserialize(ConstPayload data) {
@@ -168,7 +163,7 @@ std::optional<LidarScanData> LidarScanData::deserialize(ConstPayload data) {
     return result;
 }
 
-ConstPayload ImuData::serialize(std::vector<uint8_t>& buffer) const {
+void ImuData::serialize(std::vector<uint8_t>& buffer) const {
     const size_t required_size = sizeof(uint32_t) + sensor_id_.size() +
                                  sizeof(timestamp_ns_) +
                                  sizeof(accel_x) + sizeof(accel_y) + sizeof(accel_z) +
@@ -199,8 +194,6 @@ ConstPayload ImuData::serialize(std::vector<uint8_t>& buffer) const {
     std::memcpy(buffer.data() + offset, &gyro_y, sizeof(gyro_y));
     offset += sizeof(gyro_y);
     std::memcpy(buffer.data() + offset, &gyro_z, sizeof(gyro_z));
-
-    return ConstPayload(buffer.data(), buffer.size());
 }
 
 std::optional<ImuData> ImuData::deserialize(ConstPayload data) {

@@ -20,29 +20,41 @@ Designed for rapid prototyping of sensor data pipelines in ADAS, robotics, and a
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- C++20 compiler (GCC 13+, Clang 17+)
-- CMake 3.20+
-- vcpkg (recommended) or system packages
-
-### Build from Source
+### Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/coolwindjo/SensorStreamKit.git
-cd SensorStreamKit
+# Debug build with tests
+cmake --workflow --preset debug
 
-# Install dependencies via vcpkg (requires VCPKG_ROOT environment variable)
-$VCPKG_ROOT/vcpkg install
-
-# Configure and build using presets
-cmake --preset release
-cmake --build --preset release --parallel
+# Release build
+cmake --workflow --preset release
 
 # Run tests
-ctest --preset release
+./build/tests/test_message_class
 ```
+
+### VSCode Debugging
+
+⚠️ **Note:** Interactive debugging does not work in Docker Desktop on macOS. Use native macOS debugging instead.
+
+**Available Debug Configurations:**
+
+| Configuration | Platform | Debugger |
+|---------------|----------|----------|
+| `GDB: Debug Tests (Linux)` | Native Linux | GDB |
+| `GDB: Debug Specific Test (Linux)` | Native Linux | GDB |
+| `LLDB: Debug Tests (macOS)` | Native macOS | LLDB |
+| `LLDB: Debug Specific Test (macOS)` | Native macOS | LLDB |
+
+**Quick Start:**
+1. Build with debug symbols: `cmake --preset debug && cmake --build build`
+2. Install debugger extension:
+   - macOS: Install **CodeLLDB** extension
+   - Linux: Built-in C/C++ extension works with GDB
+3. Set breakpoints in code
+4. Press **F5** and select appropriate configuration
+
+See [DEBUGGING.md](DEBUGGING.md) for detailed information and troubleshooting.
 
 ### Docker Development
 

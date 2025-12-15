@@ -17,6 +17,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Export compile commands for IDE support
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 # ============================================================================
 # Options
 # ============================================================================
@@ -26,69 +33,64 @@ option(SENSORSTREAMKIT_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(SENSORSTREAMKIT_ENABLE_COVERAGE "Enable code coverage" OFF)
 
 # ============================================================================
-# Dependencies via vcpkg (recommended) or find_package
+# Dependencies via vcpkg
 # ============================================================================
 find_package(cppzmq REQUIRED)
 find_package(flatbuffers REQUIRED)
 find_package(nlohmann_json REQUIRED)
-
-# cpp-httplib is header-only, fetch if not found
-include(FetchContent)
-FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.15.3
-)
-FetchContent_MakeAvailable(httplib)
+find_package(httplib REQUIRED)
 
 # ============================================================================
-# Main Library (Header-Only for now)
+# Main Library
 # ============================================================================
-# add_library(sensorstreamkit
-add_library(sensorstreamkit INTERFACE)
-#     src/core/message.cpp
+add_library(sensorstreamkit
+    src/sensorstreamkit/core/message.cpp
+    src/sensorstreamkit/transport/zmq_publisher.cpp
+    src/sensorstreamkit/transport/zmq_subscriber.cpp
 #     src/core/serialization.cpp
-#     src/transport/zmq_publisher.cpp
-#     src/transport/zmq_subscriber.cpp
 #     src/api/rest_server.cpp
 #     src/sensors/camera_sensor.cpp
 #     src/sensors/lidar_sensor.cpp
 #     src/sensors/imu_sensor.cpp
-# )
+)
 
 target_include_directories(sensorstreamkit
-    # PUBLIC
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-    # PRIVATE
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(sensorstreamkit
-    # PUBLIC
-    INTERFACE
+    PUBLIC
         cppzmq
         flatbuffers::flatbuffers
         nlohmann_json::nlohmann_json
         httplib::httplib
 )
 
-# target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
-target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
+target_compile_features(sensorstreamkit PUBLIC cxx_std_20)
 
-# # Compiler warnings
-# target_compile_options(sensorstreamkit PRIVATE
-#     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
-#     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
-# )
+# Compiler warnings
+target_compile_options(sensorstreamkit PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Werror>
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Werror>
+)
+
+# Debug/Release specific options
+target_compile_options(sensorstreamkit PRIVATE
+    $<$<CONFIG:Debug>:-g3 -O0 -DDEBUG>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-g -O2>
+)
 
 # ============================================================================
 # FlatBuffers Schema Generation
 # ============================================================================
-# set(FLATBUFFERS_SCHEMAS
-#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
-# )
+set(FLATBUFFERS_SCHEMAS
+    ${CMAKE_CURRENT_SOURCE_DIR}/proto/sensor_data.fbs
+)
 
 # Generate FlatBuffers headers (run manually or add custom command)
 # flatc --cpp -o ${CMAKE_CURRENT_SOURCE_DIR}/include/sensorstreamkit/generated ${FLATBUFFERS_SCHEMAS}
@@ -96,18 +98,18 @@ target_compile_features(sensorstreamkit INTERFACE cxx_std_20)
 # ============================================================================
 # Examples
 # ============================================================================
-# if(SENSORSTREAMKIT_BUILD_EXAMPLES)
-#     add_subdirectory(examples)
-# endif()
+if(SENSORSTREAMKIT_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 # ============================================================================
 # Tests
 # ============================================================================
-# if(SENSORSTREAMKIT_BUILD_TESTS)
-#     enable_testing()
-#     find_package(GTest REQUIRED)
-#     add_subdirectory(tests)
-# endif()
+if(SENSORSTREAMKIT_BUILD_TESTS)
+    enable_testing()
+    find_package(GTest REQUIRED)
+    add_subdirectory(tests)
+endif()
 
 # ============================================================================
 # Installation

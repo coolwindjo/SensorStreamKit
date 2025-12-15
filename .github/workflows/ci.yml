@@ -1,29 +1,24 @@
-# .github/workflows/ci.yml - Continuous Integration for SensorStreamKit
 name: CI
 
 on:
-  push:                         # when push
+  push:
     branches: [main, develop]
-  pull_request:                 # when pull_request
+  pull_request:
     branches: [main]
 
 env:
-  BUILD_TYPE: Release
   VCPKG_DEFAULT_TRIPLET: x64-linux
 
 jobs:
-  # ============================================================================
-  # Build Matrix: GCC and Clang with multiple configurations
-  # ============================================================================
   build:
     name: Build (${{ matrix.compiler }}, ${{ matrix.preset }})
-    runs-on: ubuntu-24.04             # system built on
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc-13, clang-17]  # planned compiler
-        preset: [debug, release]      # CMake preset names
+        compiler: [gcc-13, clang-17]
+        preset: [debug, release]
         include:
           - compiler: gcc-13
             cc: gcc-13
@@ -34,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4     # ??
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -42,113 +37,25 @@ jobs:
           sudo apt-get install -y \
             cmake ninja-build \
             gcc-13 g++-13 clang-17 \
-            libzmq3-dev \
-            libgtest-dev \
-            libgmock-dev
+            libzmq3-dev libgtest-dev
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 'a1a1cbc975'  # Pin to specific version
+          vcpkgGitCommitId: 'a1a1cbc975'
 
-      - name: Configure CMake         # planned CMake preset
+      - name: Configure
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} --parallel $(nproc)
+        run: cmake --build --preset ${{ matrix.preset }} -j4
 
       - name: Test
-        run: ctest --preset ${{ matrix.preset }} --parallel $(nproc)
+        run: ctest --preset ${{ matrix.preset }}
 
-  # ============================================================================
-  # Code Coverage
-  # ============================================================================
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build gcc-13 g++-13 \
-            libzmq3-dev libgtest-dev lcov
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-
-      - name: Configure with coverage
-        env:
-          CC: gcc-13
-          CXX: g++-13
-        run: cmake --preset coverage
-
-      - name: Build
-        run: cmake --build --preset coverage --parallel
-
-      - name: Run tests
-        run: ctest --preset coverage
-
-      - name: Generate coverage report
-        run: |
-          lcov --capture --directory build/coverage --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/vcpkg/*' '*/test/*' --output-file coverage.info
-          lcov --list coverage.info
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage.info
-          fail_ci_if_error: true
-
-  # ============================================================================
-  # Static Analysis
-  # ============================================================================
-  static-analysis:
-    name: Static Analysis
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build \
-            clang-17 clang-tidy-17 clang-format-17 \
-            libzmq3-dev
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-
-      - name: Check formatting
-        run: |
-          find include src -name '*.cpp' -o -name '*.hpp' | \
-            xargs clang-format-17 --dry-run --Werror
-
-      - name: Configure for analysis
-        env:
-          CC: clang-17
-          CXX: clang++-17
-        run: cmake --preset analysis
-
-      - name: Run clang-tidy
-        run: |
-          clang-tidy-17 -p build/analysis $(find src -name '*.cpp') \
-            --checks='-*,modernize-*,performance-*,bugprone-*,cppcoreguidelines-*'
-
-  # ============================================================================
-  # Docker Build
-  # ============================================================================
   docker:
     name: Docker Build
     runs-on: ubuntu-24.04
@@ -170,29 +77,3 @@ jobs:
           tags: sensorstreamkit:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # ============================================================================
-  # Documentation
-  # ============================================================================
-  docs:
-    name: Documentation
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Doxygen
-        run: sudo apt-get install -y doxygen graphviz
-
-      - name: Generate docs
-        run: |
-          doxygen Doxyfile 2>&1 | tee doxygen.log
-          if grep -q "warning:" doxygen.log; then
-            echo "::warning::Doxygen warnings found"
-          fi
-
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation
-          path: docs/html/

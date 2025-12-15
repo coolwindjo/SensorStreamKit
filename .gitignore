@@ -1,4 +1,22 @@
-.DS_store
+.DS_Store
 .vscode
+.devcontainer
+.gdbinit
+.lldbinit
+
+# Build directories (platform-specific binaries, should not be committed)
 build/
+build-*/
 SensorStreamKit_source/
+
+# Debug files
+.gdb_history
+.lldb_history
+*.dSYM/
+core
+vgcore.*
+
+# Platform-specific note: build/ contains different binary formats
+# - macOS: Mach-O ARM64 binaries
+# - Docker/Linux: ELF x86-64 binaries
+# See DEBUGGING.md for details
