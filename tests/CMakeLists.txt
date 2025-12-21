@@ -22,6 +22,25 @@ target_compile_features(test_message_class PRIVATE cxx_std_20)
 add_test(NAME MessageClassTests COMMAND test_message_class)
 
 # ============================================================================
+# SequenceCounter Tests (PIMPL Pattern)
+# ============================================================================
+
+add_executable(test_sequence_counter
+    test_sequence_counter.cpp
+)
+
+target_link_libraries(test_sequence_counter
+    PRIVATE
+        sensorstreamkit
+    GTest::gtest_main
+)
+
+target_compile_features(test_sequence_counter PRIVATE cxx_std_20)
+
+# Add test to CTest
+add_test(NAME SequenceCounterTests COMMAND test_sequence_counter)
+
+# ============================================================================
 # ZMQ Transport Tests
 # ============================================================================
 
@@ -45,6 +64,11 @@ add_test(NAME ZmqTransportTests COMMAND test_zmq_transport)
 # ============================================================================
 
 target_compile_options(test_message_class PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic>
+)
+
+target_compile_options(test_sequence_counter PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic>
 )
