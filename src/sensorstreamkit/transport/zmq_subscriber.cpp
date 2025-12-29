@@ -95,11 +95,27 @@ std::optional<std::vector<uint8_t>> ZmqSubscriber::receive_raw() {
             return std::nullopt;  // Timeout or error
         }
 
+        bool has_more = socket_->get(zmq::sockopt::rcvmore);
+        if (!has_more) {
+            // Received a message with only one part, which is not expected.
+            // Discard and treat as if no valid message was received.
+            return std::nullopt;
+        }
+
         // Receive data (second part of multipart message)
         zmq::message_t data_msg;
         result = socket_->recv(data_msg, zmq::recv_flags::none);
         if (!result) {
             return std::nullopt;  // Timeout or error
+        }
+
+        // If there are still more parts (unexpected), we must consume them
+        // to prevent the socket from getting desynchronized.
+        has_more = socket_->get(zmq::sockopt::rcvmore);
+        while (has_more) {
+            zmq::message_t extra_msg;
+            (void)socket_->recv(extra_msg, zmq::recv_flags::none);
+            has_more = socket_->get(zmq::sockopt::rcvmore);
         }
 
         std::vector<uint8_t> data(

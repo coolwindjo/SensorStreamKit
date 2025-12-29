@@ -622,3 +622,48 @@ TEST_F(ZmqIntegrationTest, LatencyMeasurement) {
               << std::chrono::duration_cast<std::chrono::microseconds>(avg_latency).count()
               << " µs\n";
 }
+
+TEST_F(ZmqIntegrationTest, TestCorrectlyHandlesMultipartMessages) {
+    sub_config_.receive_timeout_ms = 200;
+    ZmqSubscriber subscriber(sub_config_);
+    ASSERT_TRUE(subscriber.connect());
+    ASSERT_TRUE(subscriber.subscribe("")); // Subscribe to all topics
+
+    // Manually create a publisher socket
+    zmq::context_t context(1);
+    zmq::socket_t publisher(context, zmq::socket_type::pub);
+    publisher.bind(pub_config_.endpoint);
+
+    std::this_thread::sleep_for(100ms); // Allow connection to establish
+
+    // --- Message 1: A 3-part message (which is not standard for our publisher) ---
+    std::string topic1 = "topic1";
+    std::vector<uint8_t> data1 = {0xAA, 0xBB};
+    std::vector<uint8_t> extra_part = {0xEE, 0xFF};
+
+    publisher.send(zmq::buffer(topic1), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(data1), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(extra_part), zmq::send_flags::none);
+
+    // Subscriber receives the first message. It should get data1, and the socket
+    // should be clean for the next message.
+    auto result1 = subscriber.receive_raw();
+    ASSERT_TRUE(result1.has_value());
+    EXPECT_EQ(result1.value(), data1);
+
+    // --- Message 2: A standard 2-part message ---
+    std::string topic2 = "topic2";
+    std::vector<uint8_t> data2 = {0xCC, 0xDD};
+    publisher.send(zmq::buffer(topic2), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(data2), zmq::send_flags::none);
+
+    // Subscriber receives the second message.
+    // With the bug, it will incorrectly read the 'extra_part' from the first
+    // message as the topic of the second message, and 'topic2' as the data.
+    // With the fix, it should correctly receive 'data2'.
+    auto result2 = subscriber.receive_raw();
+    ASSERT_TRUE(result2.has_value()) << "Should have received the second message";
+
+    // This is the crucial check.
+    EXPECT_EQ(result2.value(), data2);
+}
