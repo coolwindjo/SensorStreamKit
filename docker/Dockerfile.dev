@@ -46,6 +46,16 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+# [Tech Drill Master] Recommended Diagnostics & Dependencies Layer
+RUN apt-get update && apt-get install -y \
+    iproute2 \
+    net-tools \
+    curl \
+    libsecret-1-0 \
+    gnome-keyring \
+    dbus-x11 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set default compiler to GCC 13
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
     && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 \
