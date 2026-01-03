@@ -16,6 +16,7 @@
 #include <vector>
 #include <string>
 
+#include "sensorstreamkit/transport/zmq_transport.hpp"
 #include "sensorstreamkit/transport/zmq_publisher.hpp"
 #include "sensorstreamkit/transport/zmq_subscriber.hpp"
 #include "sensorstreamkit/core/message.hpp"
@@ -64,6 +65,23 @@ protected:
     SubscriberConfig sub_config_;
 };
 
+class ZmqBrokerTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        static int port = 16000;
+        frontend_port_ = port++;
+        backend_port_ = port++;
+        
+        frontend_endpoint_ = "tcp://127.0.0.1:" + std::to_string(frontend_port_);
+        backend_endpoint_ = "tcp://127.0.0.1:" + std::to_string(backend_port_);
+    }
+
+    int frontend_port_;
+    int backend_port_;
+    std::string frontend_endpoint_;
+    std::string backend_endpoint_;
+};
+
 // ============================================================================
 // ZmqPublisher Tests
 // ============================================================================
@@ -88,6 +106,33 @@ TEST_F(ZmqPublisherTest, BindTwiceFails) {
     // This test documents the current behavior
     ZmqPublisher publisher2(config_);
     EXPECT_FALSE(publisher2.bind());  // Port already in use
+}
+
+TEST_F(ZmqPublisherTest, ConnectSuccess) {
+    // Use localhost instead of wildcard for connect
+    std::string port = config_.endpoint.substr(config_.endpoint.find_last_of(':') + 1);
+    config_.endpoint = "tcp://localhost:" + port;
+
+    ZmqPublisher publisher(config_);
+    EXPECT_TRUE(publisher.connect());
+}
+
+TEST_F(ZmqPublisherTest, ConnectFailureWithInvalidEndpoint) {
+    config_.endpoint = "invalid://endpoint";
+    ZmqPublisher publisher(config_);
+    EXPECT_FALSE(publisher.connect());
+}
+
+TEST_F(ZmqPublisherTest, PublishRawAfterConnectSucceeds) {
+    std::string port = config_.endpoint.substr(config_.endpoint.find_last_of(':') + 1);
+    config_.endpoint = "tcp://localhost:" + port;
+
+    ZmqPublisher publisher(config_);
+    ASSERT_TRUE(publisher.connect());
+
+    std::vector<uint8_t> data = {1, 2, 3, 4};
+    EXPECT_TRUE(publisher.publish_raw("test_topic", data));
+    EXPECT_EQ(publisher.messages_sent(), 1);
 }
 
 TEST_F(ZmqPublisherTest, PublishRawWithoutBindFails) {
@@ -666,4 +711,64 @@ TEST_F(ZmqIntegrationTest, TestCorrectlyHandlesMultipartMessages) {
 
     // This is the crucial check.
     EXPECT_EQ(result2.value(), data2);
+}
+
+// ============================================================================
+// ZmqTransport (Broker) Tests
+// ============================================================================
+
+TEST_F(ZmqBrokerTest, ShutdownStopsBroker) {
+    ZmqTransport broker;
+    std::atomic<bool> broker_finished{false};
+
+    std::thread broker_thread([&]() {
+        try {
+            broker.run_broker(frontend_endpoint_, backend_endpoint_);
+        } catch (const zmq::error_t&) {
+            // Expected when context is closed
+        }
+        broker_finished = true;
+    });
+
+    std::this_thread::sleep_for(100ms);
+    broker.shutdown();
+
+    if (broker_thread.joinable()) {
+        broker_thread.join();
+    }
+    EXPECT_TRUE(broker_finished);
+}
+
+TEST_F(ZmqBrokerTest, BrokerForwardsMessages) {
+    ZmqTransport broker;
+    std::thread broker_thread([&]() {
+        try {
+            broker.run_broker(frontend_endpoint_, backend_endpoint_);
+        } catch (...) {}
+    });
+
+    std::this_thread::sleep_for(200ms);
+
+    PublisherConfig pub_config;
+    pub_config.endpoint = "tcp://localhost:" + std::to_string(frontend_port_);
+    ZmqPublisher publisher(pub_config);
+    ASSERT_TRUE(publisher.connect());
+
+    SubscriberConfig sub_config;
+    sub_config.endpoint = "tcp://localhost:" + std::to_string(backend_port_);
+    ZmqSubscriber subscriber(sub_config);
+    ASSERT_TRUE(subscriber.connect());
+    ASSERT_TRUE(subscriber.subscribe("test"));
+
+    std::this_thread::sleep_for(200ms);
+
+    std::vector<uint8_t> data = {0xCA, 0xFE, 0xBA, 0xBE};
+    EXPECT_TRUE(publisher.publish_raw("test", data));
+
+    auto result = subscriber.receive_raw();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), data);
+
+    broker.shutdown();
+    broker_thread.join();
 }
