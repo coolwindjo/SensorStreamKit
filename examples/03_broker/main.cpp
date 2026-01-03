@@ -1,19 +1,18 @@
-#include <zmq.hpp>
+#include <iostream>
+#include "sensorstreamkit/transport/zmq_transport.hpp"
 
 int main() {
-    // Initialize ZeroMQ context with a single IO thread
-    zmq::context_t context(1);
+
+    sensorstreamkit::transport::ZmqTransport transport;
+    
+    std::cout << "Broker starting..." << std::endl;
+    std::cout << "Frontend (Publishers): tcp://*:5555" << std::endl;
+    std::cout << "Backend (Subscribers): tcp://*:5556" << std::endl;
 
     // 1. Inbound (From Publishers): Bind to 5555
-    zmq::socket_t frontend(context, ZMQ_XSUB);
-    frontend.bind("tcp://*:5555");      // Publishers connect here
-
     // 2. Outbound (To Subscribers): Bind to 5556
-    zmq::socket_t backend(context, ZMQ_XPUB);
-    backend.bind("tcp://*:5556");       // Subscribers connect here
-
     // 3. Start the proxy to forward messages between frontend and backend
-    zmq::proxy(frontend, backend);
+    transport.run_broker("tcp://*:5555", "tcp://*:5556");
     
     return 0;
 }
