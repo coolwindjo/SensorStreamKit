@@ -47,6 +47,7 @@ add_library(sensorstreamkit
     src/sensorstreamkit/core/message.cpp
     src/sensorstreamkit/transport/zmq_publisher.cpp
     src/sensorstreamkit/transport/zmq_subscriber.cpp
+    src/sensorstreamkit/transport/zmq_transport.cpp
 #     src/core/serialization.cpp
 #     src/api/rest_server.cpp
 #     src/sensors/camera_sensor.cpp
