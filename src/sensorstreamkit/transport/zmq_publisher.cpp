@@ -60,6 +60,17 @@ bool ZmqPublisher::bind() {
     }
 }
 
+bool ZmqPublisher::connect() {
+    try {
+        socket_->connect(config_.endpoint);
+        bound_ = true;
+        return true;
+    } catch (const zmq::error_t& e) {
+        bound_ = false;
+        return false;
+    }
+}
+
 bool ZmqPublisher::publish_raw(std::string_view topic, std::span<const uint8_t> data) {
     if (!bound_) {
         return false;  // Not bound

@@ -10,26 +10,22 @@
 */
 
 #include <iostream>
+#include <thread>
+#include <vector>
+#include <string>
 #include <chrono>
+// Todo: Remove unused includes
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <random>
 #include <csignal>
 #include <atomic>
 
-#include "sensorstreamkit/core/message.hpp"
 #include "sensorstreamkit/transport/zmq_publisher.hpp"
 
-using namespace sensorstreamkit::core;
 using namespace sensorstreamkit::transport;
 using namespace std::chrono_literals;
-
-// Global flag for graceful shutdown
-std::atomic<bool> g_running{true};
-
-void signal_handler(int) {
-    std::cout << "\nShutdown requested..." << std::endl;
-    g_running = false;
-}
 
 /**
  * @brief Simulated camera data generator
@@ -54,10 +50,6 @@ private:
 };
 
 int main() {
-    // Setup signal handler for graceful shutdown
-    std::signal(SIGINT, signal_handler);
-    std::signal(SIGTERM, signal_handler);
-
     std::cout << "=== SensorStreamKit Simple Publisher ===" << std::endl;
     std::cout << "Press Ctrl+C to stop" << std::endl;
 
@@ -69,13 +61,17 @@ int main() {
         .conflate = false
     };
 
-    // Create and bind publisher
+    // Connect to the broker's frontend (XSUB)
+    config.endpoint = "tcp://localhost:5555"; 
+    
+    std::cout << "Publisher initializing..." << std::endl;
     ZmqPublisher publisher(config);
-    if (!publisher.bind()) {
-        std::cerr << "Failed to bind publisher to endpoint: " << config.endpoint << std::endl;
+    
+    std::cout << "Connecting to " << config.endpoint << "..." << std::endl;
+    if (!publisher.connect()) {
+        std::cerr << "Failed to connect to broker!" << std::endl;
         return EXIT_FAILURE;
     }
-    std::cout << "Publisher bound to " << config.endpoint << std::endl;
 
     // Create simulated camera
     SimulatedCamera camera("Camera_01");
@@ -84,7 +80,7 @@ int main() {
     constexpr auto publish_interval = 33ms;  // ~30 Hz
 
     // Publish loop
-    while (g_running) {
+    while (true) {
         // Generate camera frame data
         CameraFrameData frame = camera.generate();
 

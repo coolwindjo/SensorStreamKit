@@ -78,11 +78,7 @@ public:
         if (!data) {
             return std::nullopt;
         }
-        Message<T> message;
-        if (message.deserialize(*data)) {
-            return message;
-        }
-        return std::nullopt;
+        return Message<T>::deserialize(*data);
     }
 
     /**

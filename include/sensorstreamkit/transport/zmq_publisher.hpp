@@ -52,6 +52,12 @@ public:
     [[nodiscard]] bool bind();
 
     /**
+     * @brief Connect to endpoint
+     * @return true if successful
+     */
+    [[nodiscard]] bool connect();
+
+    /**
      * @brief Publish a message with topic
      * @tparam T Message payload type (must satisfy SensorDataType concept)
      * @param topic Topic string for subscribers to filter
