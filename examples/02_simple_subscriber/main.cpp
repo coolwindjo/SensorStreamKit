@@ -15,11 +15,21 @@
 #include <thread>
 #include <chrono>
 #include <iomanip>
+#include <csignal>
+#include <stop_token>
 
 #include "sensorstreamkit/transport/zmq_subscriber.hpp"
 
 using namespace sensorstreamkit::transport;
 using namespace std::chrono_literals;
+
+namespace {
+volatile std::sig_atomic_t g_signal_status = 0;
+}
+
+void signal_handler(int signal) {
+    g_signal_status = signal;
+}
 
 int main() {
     SubscriberConfig config;
@@ -44,12 +54,22 @@ int main() {
         return 1;
     }
 
+    // Setup cancellation
+    std::stop_source stop_source;
+    std::stop_token stop_token = stop_source.get_token();
+    std::signal(SIGINT, signal_handler);
+
     // Receiving loop
 
     size_t message_received = 0;
     auto start_time = std::chrono::steady_clock::now();
-    while (true) {
-        auto result = subscriber.receive<CameraFrameData>();
+    while (!stop_token.stop_requested()) {
+        if (g_signal_status != 0) {
+            stop_source.request_stop();
+            continue;
+        }
+
+        auto result = subscriber.receive<CameraFrameData>(stop_token);
 
         if (result) {
             const auto& frame = result->payload();

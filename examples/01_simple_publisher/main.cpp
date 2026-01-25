@@ -14,13 +14,8 @@
 #include <vector>
 #include <string>
 #include <chrono>
-// Todo: Remove unused includes
-#include <condition_variable>
-#include <mutex>
-#include <thread>
-#include <random>
 #include <csignal>
-#include <atomic>
+#include <stop_token>
 
 #include "sensorstreamkit/transport/zmq_publisher.hpp"
 
@@ -49,6 +44,14 @@ private:
     uint32_t frame_counter_{0};
 };
 
+namespace {
+volatile std::sig_atomic_t g_signal_status = 0;
+}
+
+void signal_handler(int signal) {
+    g_signal_status = signal;
+}
+
 int main() {
     std::cout << "=== SensorStreamKit Simple Publisher ===" << std::endl;
     std::cout << "Press Ctrl+C to stop" << std::endl;
@@ -76,11 +79,21 @@ int main() {
     // Create simulated camera
     SimulatedCamera camera("Camera_01");
 
+    // Setup cancellation
+    std::stop_source stop_source;
+    std::stop_token stop_token = stop_source.get_token();
+    std::signal(SIGINT, signal_handler);
+
     // Publishing interval
     constexpr auto publish_interval = 33ms;  // ~30 Hz
 
     // Publish loop
-    while (true) {
+    while (!stop_token.stop_requested()) {
+        if (g_signal_status != 0) {
+            stop_source.request_stop();
+            continue;
+        }
+
         // Generate camera frame data
         CameraFrameData frame = camera.generate();
 
