@@ -195,6 +195,93 @@ TEST_F(ZmqPublisherTest, MoveConstructor) {
     EXPECT_EQ(publisher2.messages_sent(), 2);
 }
 
+TEST_F(ZmqPublisherTest, MoveConstructorResetsSource) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ZmqPublisher publisher2(std::move(publisher1));
+
+    // Source should have reset counters (valid but unspecified state)
+    EXPECT_EQ(publisher1.messages_sent(), 0);
+
+    // Dest should have ownership
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentOperator) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ZmqPublisher publisher2;
+    publisher2 = std::move(publisher1);
+
+    // Dest should have ownership and counter
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+    EXPECT_TRUE(publisher2.publish_raw("topic", data));
+    EXPECT_EQ(publisher2.messages_sent(), 2);
+
+    // Source should have reset counters
+    EXPECT_EQ(publisher1.messages_sent(), 0);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentSelfAssignment) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    publisher1 = std::move(publisher1);
+
+    // Should still work after self-assignment
+    EXPECT_EQ(publisher1.messages_sent(), 1);
+    EXPECT_TRUE(publisher1.publish_raw("topic", data));
+    EXPECT_EQ(publisher1.messages_sent(), 2);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentReplacesExistingResources) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    // Create publisher2 with different endpoint to avoid conflict
+    PublisherConfig config2 = config_;
+    size_t pos = config2.endpoint.find_last_of(':');
+    config2.endpoint = config2.endpoint.substr(0, pos) + ":" +
+                     std::to_string(std::stoi(config2.endpoint.substr(pos + 1)) + 1);
+
+    ZmqPublisher publisher2(config2);
+    ASSERT_TRUE(publisher2.bind());
+
+    std::vector<uint8_t> data1 = {1, 2, 3};
+    std::vector<uint8_t> data2 = {4, 5, 6};
+
+    ASSERT_TRUE(publisher1.publish_raw("topic1", data1));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ASSERT_TRUE(publisher2.publish_raw("topic2", data2));
+    ASSERT_EQ(publisher2.messages_sent(), 1);
+
+    // Move publisher1 into publisher2
+    publisher2 = std::move(publisher1);
+
+    // publisher2 should now have publisher1's state and be functional
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+    EXPECT_TRUE(publisher2.publish_raw("topic1", data1));
+    EXPECT_EQ(publisher2.messages_sent(), 2);
+
+    // Source should have reset counters
+    EXPECT_EQ(publisher1.messages_sent(), 0);
+}
+
 TEST_F(ZmqPublisherTest, ConflateOptionKeepsOnlyLastMessage) {
     config_.conflate = true;
     ZmqPublisher publisher(config_);
@@ -323,6 +410,73 @@ TEST_F(ZmqSubscriberTest, ReceiveTimeoutWhenNoMessages) {
     // Should timeout roughly after configured time
     EXPECT_GE(duration, 90ms);
     EXPECT_LE(duration, 200ms);
+}
+
+TEST_F(ZmqSubscriberTest, MoveConstructor) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(std::move(subscriber1));
+
+    // Dest should have ownership and be connected
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveConstructorResetsSource) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(std::move(subscriber1));
+
+    // Source should have reset counters
+    EXPECT_EQ(subscriber1.messages_received(), 0);
+
+    // Dest should have ownership
+    EXPECT_TRUE(subscriber2.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentOperator) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2;
+    subscriber2 = std::move(subscriber1);
+
+    // Dest should have ownership
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentSelfAssignment) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    subscriber1 = std::move(subscriber1);
+
+    // Should still work after self-assignment
+    EXPECT_TRUE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentReplacesExistingResources) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(config_);
+    ASSERT_TRUE(subscriber2.connect());
+
+    // Move subscriber1 into subscriber2
+    subscriber2 = std::move(subscriber1);
+
+    // subscriber2 should now have subscriber1's state
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
 }
 
 // ============================================================================
@@ -771,4 +925,23 @@ TEST_F(ZmqBrokerTest, BrokerForwardsMessages) {
 
     broker.shutdown();
     broker_thread.join();
+}
+
+TEST_F(ZmqBrokerTest, MoveConstructorDoesNotCrash) {
+    // Verify move constructor works without crashing
+    // ZmqTransport uses same RAII pattern as publisher/subscriber (unique_ptr)
+    ZmqTransport broker1;
+    ZmqTransport broker2(std::move(broker1));
+}
+
+TEST_F(ZmqBrokerTest, MoveAssignmentDoesNotCrash) {
+    // Verify move assignment works without crashing
+    ZmqTransport broker1;
+    ZmqTransport broker2;
+    broker2 = std::move(broker1);
+}
+
+TEST_F(ZmqBrokerTest, SelfAssignmentDoesNotCrash) {
+    ZmqTransport broker1;
+    broker1 = std::move(broker1);
 }
