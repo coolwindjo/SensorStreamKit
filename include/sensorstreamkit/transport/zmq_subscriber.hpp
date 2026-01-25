@@ -14,6 +14,7 @@
 #include <span>
 #include <optional>
 #include <atomic>
+#include <stop_token>
 
 #include "sensorstreamkit/core/message.hpp"
 
@@ -73,8 +74,8 @@ public:
      * @return true if received successfully
      */
     template <SensorDataType T>
-    [[nodiscard]] std::optional<Message<T>> receive() {
-        auto data = receive_raw();
+    [[nodiscard]] std::optional<Message<T>> receive(std::stop_token stoken = {}) {
+        auto data = receive_raw(stoken);
         if (!data) {
             return std::nullopt;
         }
@@ -87,7 +88,7 @@ public:
      * @param data Output data buffer
      * @return true if received successfully
      */
-    [[nodiscard]] std::optional<std::vector<uint8_t>> receive_raw();
+    [[nodiscard]] std::optional<std::vector<uint8_t>> receive_raw(std::stop_token stoken = {});
 
     /**
      * @brief Get total messages received
