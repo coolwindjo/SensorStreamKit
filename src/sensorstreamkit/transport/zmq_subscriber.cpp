@@ -127,6 +127,10 @@ std::optional<std::vector<uint8_t>> ZmqSubscriber::receive_raw(std::stop_token s
 
         int rc = zmq::poll(items, 1, poll_duration);
 
+        if (rc < 0) {
+            return std::nullopt; // Error in poll
+        }
+
         if (rc > 0 && (items[0].revents & ZMQ_POLLIN)) {
             try {
                 // Receive topic (first part of multipart message)

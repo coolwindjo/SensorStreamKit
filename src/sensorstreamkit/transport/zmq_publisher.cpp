@@ -116,6 +116,10 @@ bool ZmqPublisher::publish_raw(std::string_view topic, std::span<const uint8_t> 
 
         int rc = zmq::poll(items, 1, poll_duration);
 
+        if (rc < 0) {
+            return false; // Error in poll
+        }
+
         if (rc > 0 && (items[0].revents & ZMQ_POLLOUT)) {
             try {
                 zmq::message_t topic_msg(topic.data(), topic.size());
