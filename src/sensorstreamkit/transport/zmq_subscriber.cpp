@@ -15,6 +15,7 @@ ZmqSubscriber::ZmqSubscriber(const SubscriberConfig& config)
 
     socket_->set(zmq::sockopt::rcvhwm, config_.high_water_mark);
     socket_->set(zmq::sockopt::rcvtimeo, config_.receive_timeout_ms);
+    subscriptions_.clear();
 }
 
 ZmqSubscriber::~ZmqSubscriber() {

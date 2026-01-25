@@ -833,7 +833,7 @@ TEST_F(ZmqIntegrationTest, TestCorrectlyHandlesMultipartMessages) {
     zmq::socket_t publisher(context, zmq::socket_type::pub);
     publisher.bind(pub_config_.endpoint);
 
-    std::this_thread::sleep_for(100ms); // Allow connection to establish
+    std::this_thread::sleep_for(500ms); // Allow connection to establish
 
     // --- Message 1: A 3-part message (which is not standard for our publisher) ---
     std::string topic1 = "topic1";
