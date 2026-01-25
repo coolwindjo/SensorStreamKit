@@ -11,10 +11,10 @@
 #include <string_view>
 #include <memory>
 #include <vector>
-#include <span>
 #include <optional>
 #include <atomic>
 #include <stop_token>
+#include <unordered_set>
 
 #include "sensorstreamkit/core/message.hpp"
 
@@ -110,6 +110,7 @@ private:
     std::unique_ptr<zmq::socket_t> socket_;
     std::atomic<uint64_t> messages_received_{0};
     std::atomic<bool> connected_{false};
+    std::unordered_set<std::string> subscriptions_;
 };
 
 }   // namespace sensorstreamkit::transport

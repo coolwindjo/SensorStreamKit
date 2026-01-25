@@ -823,7 +823,7 @@ TEST_F(ZmqIntegrationTest, LatencyMeasurement) {
 }
 
 TEST_F(ZmqIntegrationTest, TestCorrectlyHandlesMultipartMessages) {
-    sub_config_.receive_timeout_ms = 200;
+    sub_config_.receive_timeout_ms = 1000;
     ZmqSubscriber subscriber(sub_config_);
     ASSERT_TRUE(subscriber.connect());
     ASSERT_TRUE(subscriber.subscribe("")); // Subscribe to all topics

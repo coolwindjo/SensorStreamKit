@@ -4,7 +4,6 @@
  */
 
 #include "sensorstreamkit/transport/zmq_subscriber.hpp"
-#include <stdexcept>
 #include <chrono>
 
 namespace sensorstreamkit::transport {
@@ -32,10 +31,12 @@ ZmqSubscriber::ZmqSubscriber(ZmqSubscriber&& other) noexcept
     , context_(std::move(other.context_))
     , socket_(std::move(other.socket_))
     , messages_received_(other.messages_received_.load())
-    , connected_(other.connected_.load()) {
+    , connected_(other.connected_.load())
+    , subscriptions_(std::move(other.subscriptions_)) {
     // Reset moved-from object to valid state
     other.messages_received_.store(0, std::memory_order_relaxed);
     other.connected_.store(false, std::memory_order_relaxed);
+    other.subscriptions_.clear();
 }
 
 ZmqSubscriber& ZmqSubscriber::operator=(ZmqSubscriber&& other) noexcept {
@@ -54,10 +55,12 @@ ZmqSubscriber& ZmqSubscriber::operator=(ZmqSubscriber&& other) noexcept {
         socket_ = std::move(other.socket_);
         messages_received_ = other.messages_received_.load();
         connected_ = other.connected_.load();
+        subscriptions_ = std::move(other.subscriptions_);
 
         // Reset moved-from object to valid state
         other.messages_received_.store(0, std::memory_order_relaxed);
         other.connected_.store(false, std::memory_order_relaxed);
+        other.subscriptions_.clear();
     }
     return *this;
 }
@@ -80,6 +83,7 @@ bool ZmqSubscriber::subscribe(std::string_view topic) {
 
     try {
         socket_->set(zmq::sockopt::subscribe, topic);
+        subscriptions_.emplace(topic);
         return true;
     } catch (const zmq::error_t& e) {
         return false;
@@ -91,8 +95,14 @@ bool ZmqSubscriber::unsubscribe(std::string_view topic) {
         return false;
     }
 
+    std::string topic_str(topic);
+    if (subscriptions_.find(topic_str) == subscriptions_.end()) {
+        return false;
+    }
+
     try {
         socket_->set(zmq::sockopt::unsubscribe, topic);
+        subscriptions_.erase(topic_str);
         return true;
     } catch (const zmq::error_t& e) {
         return false;
@@ -156,7 +166,9 @@ std::optional<std::vector<uint8_t>> ZmqSubscriber::receive_raw(std::stop_token s
                 // Consume unexpected extra parts
                 while (socket_->get(zmq::sockopt::rcvmore)) {
                     zmq::message_t extra_msg;
-                    (void)socket_->recv(extra_msg, zmq::recv_flags::none);
+                    if (!socket_->recv(extra_msg, zmq::recv_flags::none)) {
+                        break;
+                    }
                 }
 
                 std::vector<uint8_t> data(
