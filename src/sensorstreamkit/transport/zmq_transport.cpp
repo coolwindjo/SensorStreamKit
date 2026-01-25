@@ -18,10 +18,20 @@ ZmqTransport::ZmqTransport(ZmqTransport&& other) noexcept
     : context_(std::move(other.context_)),
       frontend_socket_(std::move(other.frontend_socket_)),
       backend_socket_(std::move(other.backend_socket_)) {
+    // Moved-from object's unique_ptr will be null, which is valid
 }
 
 ZmqTransport& ZmqTransport::operator=(ZmqTransport&& other) noexcept {
     if (this != &other) {
+        // Reset sockets first (closes them via unique_ptr), then close context
+        frontend_socket_.reset();
+        backend_socket_.reset();
+        if (context_) {
+            context_->close();
+            context_.reset();
+        }
+
+        // Transfer ownership
         context_ = std::move(other.context_);
         frontend_socket_ = std::move(other.frontend_socket_);
         backend_socket_ = std::move(other.backend_socket_);
@@ -30,11 +40,12 @@ ZmqTransport& ZmqTransport::operator=(ZmqTransport&& other) noexcept {
 }
 
 ZmqTransport::~ZmqTransport() {
+    // Reset sockets first (closes them via unique_ptr), then close context
+    frontend_socket_.reset();
+    backend_socket_.reset();
     if (context_) {
         context_->close();
         context_.reset();
-        frontend_socket_.reset();
-        backend_socket_.reset();
     }
 }
 
