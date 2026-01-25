@@ -50,14 +50,20 @@ ZmqTransport::~ZmqTransport() {
 }
 
 void ZmqTransport::run_broker(const std::string& frontend_endpoint, const std::string& backend_endpoint) {
-    // 1. Inbound (From Publishers): XSUB
-    frontend_socket_->bind(frontend_endpoint);
+    try {
+        // 1. Inbound (From Publishers): XSUB
+        frontend_socket_->bind(frontend_endpoint);
 
-    // 2. Outbound (To Subscribers): XPUB
-    backend_socket_->bind(backend_endpoint);
+        // 2. Outbound (To Subscribers): XPUB
+        backend_socket_->bind(backend_endpoint);
 
-    // 3. Start the proxy (blocks indefinitely)
-    zmq::proxy(*frontend_socket_, *backend_socket_);
+        // 3. Start the proxy (blocks indefinitely)
+        zmq::proxy(*frontend_socket_, *backend_socket_);
+    } catch (const zmq::error_t& e) {
+        if (e.num() != ETERM) {
+            throw;
+        }
+    }
 }
 
 } // namespace sensorstreamkit::transport

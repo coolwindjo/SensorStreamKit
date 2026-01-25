@@ -37,7 +37,6 @@ public:
     void shutdown() {
         if (context_) {
             context_->shutdown();
-            context_->close();
         }
     }
 
