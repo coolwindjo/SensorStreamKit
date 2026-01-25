@@ -10,26 +10,17 @@
 */
 
 #include <iostream>
-#include <chrono>
 #include <thread>
-#include <random>
+#include <vector>
+#include <string>
+#include <chrono>
 #include <csignal>
-#include <atomic>
+#include <stop_token>
 
-#include "sensorstreamkit/core/message.hpp"
 #include "sensorstreamkit/transport/zmq_publisher.hpp"
 
-using namespace sensorstreamkit::core;
 using namespace sensorstreamkit::transport;
 using namespace std::chrono_literals;
-
-// Global flag for graceful shutdown
-std::atomic<bool> g_running{true};
-
-void signal_handler(int) {
-    std::cout << "\nShutdown requested..." << std::endl;
-    g_running = false;
-}
 
 /**
  * @brief Simulated camera data generator
@@ -53,11 +44,15 @@ private:
     uint32_t frame_counter_{0};
 };
 
-int main() {
-    // Setup signal handler for graceful shutdown
-    std::signal(SIGINT, signal_handler);
-    std::signal(SIGTERM, signal_handler);
+namespace {
+volatile std::sig_atomic_t g_signal_status = 0;
+}
 
+void signal_handler(int signal) {
+    g_signal_status = signal;
+}
+
+int main() {
     std::cout << "=== SensorStreamKit Simple Publisher ===" << std::endl;
     std::cout << "Press Ctrl+C to stop" << std::endl;
 
@@ -69,22 +64,36 @@ int main() {
         .conflate = false
     };
 
-    // Create and bind publisher
+    // Connect to the broker's frontend (XSUB)
+    config.endpoint = "tcp://localhost:5555"; 
+    
+    std::cout << "Publisher initializing..." << std::endl;
     ZmqPublisher publisher(config);
-    if (!publisher.bind()) {
-        std::cerr << "Failed to bind publisher to endpoint: " << config.endpoint << std::endl;
+    
+    std::cout << "Connecting to " << config.endpoint << "..." << std::endl;
+    if (!publisher.connect()) {
+        std::cerr << "Failed to connect to broker!" << std::endl;
         return EXIT_FAILURE;
     }
-    std::cout << "Publisher bound to " << config.endpoint << std::endl;
 
     // Create simulated camera
     SimulatedCamera camera("Camera_01");
+
+    // Setup cancellation
+    std::stop_source stop_source;
+    std::stop_token stop_token = stop_source.get_token();
+    std::signal(SIGINT, signal_handler);
 
     // Publishing interval
     constexpr auto publish_interval = 33ms;  // ~30 Hz
 
     // Publish loop
-    while (g_running) {
+    while (!stop_token.stop_requested()) {
+        if (g_signal_status != 0) {
+            stop_source.request_stop();
+            continue;
+        }
+
         // Generate camera frame data
         CameraFrameData frame = camera.generate();
 

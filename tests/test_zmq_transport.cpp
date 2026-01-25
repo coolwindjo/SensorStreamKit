@@ -16,6 +16,7 @@
 #include <vector>
 #include <string>
 
+#include "sensorstreamkit/transport/zmq_transport.hpp"
 #include "sensorstreamkit/transport/zmq_publisher.hpp"
 #include "sensorstreamkit/transport/zmq_subscriber.hpp"
 #include "sensorstreamkit/core/message.hpp"
@@ -64,6 +65,23 @@ protected:
     SubscriberConfig sub_config_;
 };
 
+class ZmqBrokerTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        static int port = 16000;
+        frontend_port_ = port++;
+        backend_port_ = port++;
+        
+        frontend_endpoint_ = "tcp://127.0.0.1:" + std::to_string(frontend_port_);
+        backend_endpoint_ = "tcp://127.0.0.1:" + std::to_string(backend_port_);
+    }
+
+    int frontend_port_;
+    int backend_port_;
+    std::string frontend_endpoint_;
+    std::string backend_endpoint_;
+};
+
 // ============================================================================
 // ZmqPublisher Tests
 // ============================================================================
@@ -88,6 +106,33 @@ TEST_F(ZmqPublisherTest, BindTwiceFails) {
     // This test documents the current behavior
     ZmqPublisher publisher2(config_);
     EXPECT_FALSE(publisher2.bind());  // Port already in use
+}
+
+TEST_F(ZmqPublisherTest, ConnectSuccess) {
+    // Use localhost instead of wildcard for connect
+    std::string port = config_.endpoint.substr(config_.endpoint.find_last_of(':') + 1);
+    config_.endpoint = "tcp://localhost:" + port;
+
+    ZmqPublisher publisher(config_);
+    EXPECT_TRUE(publisher.connect());
+}
+
+TEST_F(ZmqPublisherTest, ConnectFailureWithInvalidEndpoint) {
+    config_.endpoint = "invalid://endpoint";
+    ZmqPublisher publisher(config_);
+    EXPECT_FALSE(publisher.connect());
+}
+
+TEST_F(ZmqPublisherTest, PublishRawAfterConnectSucceeds) {
+    std::string port = config_.endpoint.substr(config_.endpoint.find_last_of(':') + 1);
+    config_.endpoint = "tcp://localhost:" + port;
+
+    ZmqPublisher publisher(config_);
+    ASSERT_TRUE(publisher.connect());
+
+    std::vector<uint8_t> data = {1, 2, 3, 4};
+    EXPECT_TRUE(publisher.publish_raw("test_topic", data));
+    EXPECT_EQ(publisher.messages_sent(), 1);
 }
 
 TEST_F(ZmqPublisherTest, PublishRawWithoutBindFails) {
@@ -148,6 +193,93 @@ TEST_F(ZmqPublisherTest, MoveConstructor) {
     // publisher2 should still work after move
     EXPECT_TRUE(publisher2.publish_raw("topic", data));
     EXPECT_EQ(publisher2.messages_sent(), 2);
+}
+
+TEST_F(ZmqPublisherTest, MoveConstructorResetsSource) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ZmqPublisher publisher2(std::move(publisher1));
+
+    // Source should have reset counters (valid but unspecified state)
+    EXPECT_EQ(publisher1.messages_sent(), 0);
+
+    // Dest should have ownership
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentOperator) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ZmqPublisher publisher2;
+    publisher2 = std::move(publisher1);
+
+    // Dest should have ownership and counter
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+    EXPECT_TRUE(publisher2.publish_raw("topic", data));
+    EXPECT_EQ(publisher2.messages_sent(), 2);
+
+    // Source should have reset counters
+    EXPECT_EQ(publisher1.messages_sent(), 0);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentSelfAssignment) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    std::vector<uint8_t> data = {1, 2, 3};
+    ASSERT_TRUE(publisher1.publish_raw("topic", data));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    publisher1 = std::move(publisher1);
+
+    // Should still work after self-assignment
+    EXPECT_EQ(publisher1.messages_sent(), 1);
+    EXPECT_TRUE(publisher1.publish_raw("topic", data));
+    EXPECT_EQ(publisher1.messages_sent(), 2);
+}
+
+TEST_F(ZmqPublisherTest, MoveAssignmentReplacesExistingResources) {
+    ZmqPublisher publisher1(config_);
+    ASSERT_TRUE(publisher1.bind());
+
+    // Create publisher2 with different endpoint to avoid conflict
+    PublisherConfig config2 = config_;
+    size_t pos = config2.endpoint.find_last_of(':');
+    config2.endpoint = config2.endpoint.substr(0, pos) + ":" +
+                     std::to_string(std::stoi(config2.endpoint.substr(pos + 1)) + 1);
+
+    ZmqPublisher publisher2(config2);
+    ASSERT_TRUE(publisher2.bind());
+
+    std::vector<uint8_t> data1 = {1, 2, 3};
+    std::vector<uint8_t> data2 = {4, 5, 6};
+
+    ASSERT_TRUE(publisher1.publish_raw("topic1", data1));
+    ASSERT_EQ(publisher1.messages_sent(), 1);
+
+    ASSERT_TRUE(publisher2.publish_raw("topic2", data2));
+    ASSERT_EQ(publisher2.messages_sent(), 1);
+
+    // Move publisher1 into publisher2
+    publisher2 = std::move(publisher1);
+
+    // publisher2 should now have publisher1's state and be functional
+    EXPECT_EQ(publisher2.messages_sent(), 1);
+    EXPECT_TRUE(publisher2.publish_raw("topic1", data1));
+    EXPECT_EQ(publisher2.messages_sent(), 2);
+
+    // Source should have reset counters
+    EXPECT_EQ(publisher1.messages_sent(), 0);
 }
 
 TEST_F(ZmqPublisherTest, ConflateOptionKeepsOnlyLastMessage) {
@@ -278,6 +410,73 @@ TEST_F(ZmqSubscriberTest, ReceiveTimeoutWhenNoMessages) {
     // Should timeout roughly after configured time
     EXPECT_GE(duration, 90ms);
     EXPECT_LE(duration, 200ms);
+}
+
+TEST_F(ZmqSubscriberTest, MoveConstructor) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(std::move(subscriber1));
+
+    // Dest should have ownership and be connected
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveConstructorResetsSource) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(std::move(subscriber1));
+
+    // Source should have reset counters
+    EXPECT_EQ(subscriber1.messages_received(), 0);
+
+    // Dest should have ownership
+    EXPECT_TRUE(subscriber2.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentOperator) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2;
+    subscriber2 = std::move(subscriber1);
+
+    // Dest should have ownership
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentSelfAssignment) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    subscriber1 = std::move(subscriber1);
+
+    // Should still work after self-assignment
+    EXPECT_TRUE(subscriber1.is_connected());
+}
+
+TEST_F(ZmqSubscriberTest, MoveAssignmentReplacesExistingResources) {
+    ZmqSubscriber subscriber1(config_);
+    ASSERT_TRUE(subscriber1.connect());
+
+    ZmqSubscriber subscriber2(config_);
+    ASSERT_TRUE(subscriber2.connect());
+
+    // Move subscriber1 into subscriber2
+    subscriber2 = std::move(subscriber1);
+
+    // subscriber2 should now have subscriber1's state
+    EXPECT_TRUE(subscriber2.is_connected());
+
+    // Source should have reset state
+    EXPECT_FALSE(subscriber1.is_connected());
 }
 
 // ============================================================================
@@ -621,4 +820,128 @@ TEST_F(ZmqIntegrationTest, LatencyMeasurement) {
     std::cout << "Average latency: "
               << std::chrono::duration_cast<std::chrono::microseconds>(avg_latency).count()
               << " µs\n";
+}
+
+TEST_F(ZmqIntegrationTest, TestCorrectlyHandlesMultipartMessages) {
+    sub_config_.receive_timeout_ms = 1000;
+    ZmqSubscriber subscriber(sub_config_);
+    ASSERT_TRUE(subscriber.connect());
+    ASSERT_TRUE(subscriber.subscribe("")); // Subscribe to all topics
+
+    // Manually create a publisher socket
+    zmq::context_t context(1);
+    zmq::socket_t publisher(context, zmq::socket_type::pub);
+    publisher.bind(pub_config_.endpoint);
+
+    std::this_thread::sleep_for(500ms); // Allow connection to establish
+
+    // --- Message 1: A 3-part message (which is not standard for our publisher) ---
+    std::string topic1 = "topic1";
+    std::vector<uint8_t> data1 = {0xAA, 0xBB};
+    std::vector<uint8_t> extra_part = {0xEE, 0xFF};
+
+    publisher.send(zmq::buffer(topic1), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(data1), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(extra_part), zmq::send_flags::none);
+
+    // Subscriber receives the first message. It should get data1, and the socket
+    // should be clean for the next message.
+    auto result1 = subscriber.receive_raw();
+    ASSERT_TRUE(result1.has_value());
+    EXPECT_EQ(result1.value(), data1);
+
+    // --- Message 2: A standard 2-part message ---
+    std::string topic2 = "topic2";
+    std::vector<uint8_t> data2 = {0xCC, 0xDD};
+    publisher.send(zmq::buffer(topic2), zmq::send_flags::sndmore);
+    publisher.send(zmq::buffer(data2), zmq::send_flags::none);
+
+    // Subscriber receives the second message.
+    // With the bug, it will incorrectly read the 'extra_part' from the first
+    // message as the topic of the second message, and 'topic2' as the data.
+    // With the fix, it should correctly receive 'data2'.
+    auto result2 = subscriber.receive_raw();
+    ASSERT_TRUE(result2.has_value()) << "Should have received the second message";
+
+    // This is the crucial check.
+    EXPECT_EQ(result2.value(), data2);
+}
+
+// ============================================================================
+// ZmqTransport (Broker) Tests
+// ============================================================================
+
+TEST_F(ZmqBrokerTest, ShutdownStopsBroker) {
+    ZmqTransport broker;
+    std::atomic<bool> broker_finished{false};
+
+    std::thread broker_thread([&]() {
+        try {
+            broker.run_broker(frontend_endpoint_, backend_endpoint_);
+        } catch (const zmq::error_t&) {
+            // Expected when context is closed
+        }
+        broker_finished = true;
+    });
+
+    std::this_thread::sleep_for(100ms);
+    broker.shutdown();
+
+    if (broker_thread.joinable()) {
+        broker_thread.join();
+    }
+    EXPECT_TRUE(broker_finished);
+}
+
+TEST_F(ZmqBrokerTest, BrokerForwardsMessages) {
+    ZmqTransport broker;
+    std::thread broker_thread([&]() {
+        try {
+            broker.run_broker(frontend_endpoint_, backend_endpoint_);
+        } catch (...) {}
+    });
+
+    std::this_thread::sleep_for(200ms);
+
+    PublisherConfig pub_config;
+    pub_config.endpoint = "tcp://localhost:" + std::to_string(frontend_port_);
+    ZmqPublisher publisher(pub_config);
+    ASSERT_TRUE(publisher.connect());
+
+    SubscriberConfig sub_config;
+    sub_config.endpoint = "tcp://localhost:" + std::to_string(backend_port_);
+    ZmqSubscriber subscriber(sub_config);
+    ASSERT_TRUE(subscriber.connect());
+    ASSERT_TRUE(subscriber.subscribe("test"));
+
+    std::this_thread::sleep_for(200ms);
+
+    std::vector<uint8_t> data = {0xCA, 0xFE, 0xBA, 0xBE};
+    EXPECT_TRUE(publisher.publish_raw("test", data));
+
+    auto result = subscriber.receive_raw();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), data);
+
+    broker.shutdown();
+    broker_thread.join();
+}
+
+TEST_F(ZmqBrokerTest, MoveConstructorDoesNotCrash) {
+    // Verify move constructor works without crashing
+    // ZmqTransport uses same RAII pattern as publisher/subscriber (unique_ptr)
+    ZmqTransport broker1;
+    ZmqTransport broker2(std::move(broker1));
+}
+
+TEST_F(ZmqBrokerTest, MoveAssignmentDoesNotCrash) {
+    // Verify move assignment works without crashing
+    ZmqTransport broker1;
+    ZmqTransport broker2;
+    broker2 = std::move(broker1);
+}
+
+TEST_F(ZmqBrokerTest, SelfAssignmentDoesNotCrash) {
+    ZmqTransport broker1;
+    broker1 = std::move(broker1);
 }

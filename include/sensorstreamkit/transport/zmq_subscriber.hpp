@@ -11,9 +11,10 @@
 #include <string_view>
 #include <memory>
 #include <vector>
-#include <span>
 #include <optional>
 #include <atomic>
+#include <stop_token>
+#include <unordered_set>
 
 #include "sensorstreamkit/core/message.hpp"
 
@@ -73,16 +74,12 @@ public:
      * @return true if received successfully
      */
     template <SensorDataType T>
-    [[nodiscard]] std::optional<Message<T>> receive() {
-        auto data = receive_raw();
+    [[nodiscard]] std::optional<Message<T>> receive(std::stop_token stoken = {}) {
+        auto data = receive_raw(stoken);
         if (!data) {
             return std::nullopt;
         }
-        Message<T> message;
-        if (message.deserialize(*data)) {
-            return message;
-        }
-        return std::nullopt;
+        return Message<T>::deserialize(*data);
     }
 
     /**
@@ -91,7 +88,7 @@ public:
      * @param data Output data buffer
      * @return true if received successfully
      */
-    [[nodiscard]] std::optional<std::vector<uint8_t>> receive_raw();
+    [[nodiscard]] std::optional<std::vector<uint8_t>> receive_raw(std::stop_token stoken = {});
 
     /**
      * @brief Get total messages received
@@ -113,6 +110,7 @@ private:
     std::unique_ptr<zmq::socket_t> socket_;
     std::atomic<uint64_t> messages_received_{0};
     std::atomic<bool> connected_{false};
+    std::unordered_set<std::string> subscriptions_;
 };
 
 }   // namespace sensorstreamkit::transport

@@ -7,10 +7,9 @@
  * @date 2025
  */
 
-#include <atomic>
-#include <chrono>
 #include <concepts>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -24,6 +23,7 @@ namespace sensorstreamkit::core {
 // ============================================================================
 
 using ConstPayload = std::span<const uint8_t>;
+
 
 // ===========================================================================
 // Concepts for Type Safety
@@ -53,6 +53,7 @@ concept SensorDataType = requires(const T& t) {
 template <typename T>
 concept PayloadType = SensorDataType<T>;
 
+
 // ============================================================================
 // Timestamp Utilities
 // ============================================================================
@@ -62,30 +63,22 @@ concept PayloadType = SensorDataType<T>;
  */
 class Timestamp {
 public:
-    using clock_type = std::chrono::steady_clock;
-    using time_point = clock_type::time_point;
-    // using duration = clock_type::duration;
-
-    Timestamp() noexcept : tp_(clock_type::now()) {}
-    explicit Timestamp(uint64_t ns) noexcept
-        : tp_(time_point(std::chrono::nanoseconds(ns))) {}
+    Timestamp() noexcept;
+    explicit Timestamp(uint64_t ns) noexcept : ns_(ns) {}
 
     [[nodiscard]] uint64_t nanoseconds() const noexcept {
-        return std::chrono::duration_cast<std::chrono::nanoseconds>(
-            tp_.time_since_epoch()).count();
+        return ns_;
     }
 
-    [[nodiscard]] double seconds() const noexcept {
-        return std::chrono::duration<double>(tp_.time_since_epoch()).count();
-    }
-
-    [[nodiscard]] static Timestamp now() noexcept { return Timestamp{}; }
+    [[nodiscard]] double seconds() const noexcept;
+    [[nodiscard]] static Timestamp now() noexcept;
 
     auto operator<=>(const Timestamp&) const = default;
 
 private:
-    time_point tp_;
+    uint64_t ns_;
 };
+
 
 // ============================================================================
 // Base Message Header
@@ -108,6 +101,31 @@ struct MessageHeader {
     void serialize(std::vector<uint8_t>& buffer) const;
     static std::optional<MessageHeader> deserialize(ConstPayload data);
 };
+
+
+// ============================================================================
+// Sequence Generator
+// ============================================================================
+
+/**
+ * @brief Thread-safe sequence counter using PIMPL to hide std::atomic
+ */
+class SequenceCounter {
+public:
+    SequenceCounter();
+    ~SequenceCounter() noexcept;
+    SequenceCounter(const SequenceCounter&) = delete;
+    SequenceCounter& operator=(const SequenceCounter&) = delete;
+    SequenceCounter(SequenceCounter&&) noexcept;
+    SequenceCounter& operator=(SequenceCounter&&) noexcept;
+
+    uint32_t next() noexcept;
+
+private:
+    struct Impl;  // Forward declaration inside the class
+    std::unique_ptr<Impl> pImpl_;
+};
+
 
 // ============================================================================
 // Generic Message Wrapper with C++20 Concepts
@@ -156,8 +174,8 @@ private:
 
     // Generate next sequence number atomically
     static uint32_t next_sequence() {
-        static std::atomic<uint32_t> sequence_counter{0};
-        return sequence_counter.fetch_add(1, std::memory_order_relaxed);
+        static SequenceCounter counter;
+        return counter.next();
     }
 };
 

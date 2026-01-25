@@ -14,6 +14,7 @@
 #include <thread>
 #include <atomic>
 #include <optional>
+#include <stop_token>
 
 #include "sensorstreamkit/core/message.hpp"
 
@@ -52,6 +53,12 @@ public:
     [[nodiscard]] bool bind();
 
     /**
+     * @brief Connect to endpoint
+     * @return true if successful
+     */
+    [[nodiscard]] bool connect();
+
+    /**
      * @brief Publish a message with topic
      * @tparam T Message payload type (must satisfy SensorDataType concept)
      * @param topic Topic string for subscribers to filter
@@ -59,16 +66,16 @@ public:
      * @return true if sent successfully
      */
     template <SensorDataType T>
-    bool publish(std::string_view topic, const Message<T>& message) {
+    bool publish(std::string_view topic, const Message<T>& message, std::stop_token stoken = {}) {
         std::vector<uint8_t> buffer;
         message.serialize(buffer);
-        return publish_raw(topic, buffer);
+        return publish_raw(topic, buffer, stoken);
     }
 
     /**
      * @brief Publish raw bytes with topic
      */
-    bool publish_raw(std::string_view topic, std::span<const uint8_t> data);
+    bool publish_raw(std::string_view topic, std::span<const uint8_t> data, std::stop_token stoken = {});
 
     /**
      * @brief Get total messages sent
@@ -76,6 +83,11 @@ public:
     [[nodiscard]] uint64_t messages_sent() const noexcept {
         return messages_sent_.load();
     }
+
+    /**
+     * @brief Swap contents with another publisher
+     */
+    void swap(ZmqPublisher& other) noexcept;
 
 private:
     PublisherConfig config_;
@@ -110,7 +122,7 @@ public:
             while (!stoken.stop_requested()) {
                 T data = generator_();
                 Message<T> message(data);
-                publisher_.publish<T>(topic_, message);
+                publisher_.publish<T>(topic_, message, stoken);
                 std::this_thread::sleep_for(interval_);
             }
         });

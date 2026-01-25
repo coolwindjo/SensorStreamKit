@@ -1,0 +1,26 @@
+# LLDB initialization for SensorStreamKit debugging
+# Compatible with both macOS (Apple LLDB) and Linux (LLDB 15+)
+
+# Enable pretty printing for STL containers
+settings set target.prefer-dynamic-value run-target
+settings set target.enable-synthetic-value true
+
+# Show full strings
+settings set target.max-string-summary-length 0
+
+# Better output formatting
+settings set frame-format "frame #${frame.index}: ${frame.pc}{ ${module.file.basename}\`${function.name-with-args}{${frame.no-debug}${function.pc-offset}}}\n"
+
+# Auto-confirm operations
+settings set auto-confirm true
+
+# Stop on errors
+settings set target.process.stop-on-sharedlibrary-events false
+
+# Set default breakpoint behavior (disabled for compatibility)
+# settings set breakpoint.skip-prologue true
+
+# Basic STL pretty printing (works on both platforms)
+type summary add -x "std::string" --summary-string "${var%s}"
+type summary add -x "std::__cxx11::string" --summary-string "${var%s}"
+type summary add -x "std::basic_string<char>" --summary-string "${var%s}"

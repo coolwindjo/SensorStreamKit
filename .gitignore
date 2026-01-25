@@ -20,3 +20,5 @@ vgcore.*
 # - macOS: Mach-O ARM64 binaries
 # - Docker/Linux: ELF x86-64 binaries
 # See DEBUGGING.md for details
+
+.cache/

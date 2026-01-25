@@ -1,0 +1,34 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "/opt/homebrew/include",
+                "/opt/homebrew/Cellar/googletest/1.17.0/include",
+                "${workspaceFolder}/build/vcpkg_installed/arm64-osx/include"
+            ],
+            "defines": [
+                "GTEST_HAS_PTHREAD=1"
+            ],
+            "compilerPath": "/usr/bin/clang++",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "macos-clang-arm64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/build/vcpkg_installed/x64-linux/include"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}

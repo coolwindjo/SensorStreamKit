@@ -4,9 +4,53 @@
  */
 
 #include "sensorstreamkit/core/message.hpp"
+#include <atomic>
+#include <chrono>
 #include <cstring>
 
 namespace sensorstreamkit::core {
+
+// ===========================================================================
+// Timestamp
+// ===========================================================================
+
+Timestamp::Timestamp() noexcept : ns_(now().nanoseconds()) {}
+
+double Timestamp::seconds() const noexcept {
+    return static_cast<double>(ns_) / 1e9;
+}
+
+Timestamp Timestamp::now() noexcept {
+    auto now = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
+    return Timestamp(static_cast<uint64_t>(ns.count()));
+}
+
+
+// ===========================================================================
+// Sequence Counter
+// ===========================================================================
+
+struct SequenceCounter::Impl {
+    std::atomic<uint32_t> counter_{0};
+};
+
+SequenceCounter::SequenceCounter() : pImpl_(std::make_unique<Impl>()) {}
+
+SequenceCounter::~SequenceCounter() noexcept = default;
+
+SequenceCounter::SequenceCounter(SequenceCounter&&) noexcept = default;
+
+SequenceCounter& SequenceCounter::operator=(SequenceCounter&&) noexcept = default;
+
+uint32_t SequenceCounter::next() noexcept {
+    return pImpl_->counter_.fetch_add(1, std::memory_order_relaxed);
+}
+
+
+// ===========================================================================
+// Message Header
+// ===========================================================================
 
 void MessageHeader::serialize(std::vector<uint8_t>& buffer) const {
     // Resize buffer to exact size needed - eliminates sizing errors
