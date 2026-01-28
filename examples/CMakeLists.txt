@@ -40,7 +40,31 @@ target_link_libraries(broker
 
 target_compile_features(broker PRIVATE cxx_std_20)
 
+# 04_rest_api
+add_executable(rest_api_example
+    04_rest_api/main.cpp
+)
+
+target_link_libraries(rest_api_example
+    PRIVATE
+        sensorstreamkit
+)
+
+target_compile_features(rest_api_example PRIVATE cxx_std_20)
+
+# 05_integrated_system
+add_executable(integrated_system
+    05_integrated_system/main.cpp
+)
+
+target_link_libraries(integrated_system
+    PRIVATE
+        sensorstreamkit
+)
+
+target_compile_features(integrated_system PRIVATE cxx_std_20)
+
 # Install examples (optional)
-install(TARGETS simple_publisher simple_subscriber broker
+install(TARGETS simple_publisher simple_subscriber broker rest_api_example integrated_system
     RUNTIME DESTINATION bin/examples
 )
