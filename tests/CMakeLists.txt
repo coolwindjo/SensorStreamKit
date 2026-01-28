@@ -46,6 +46,8 @@ add_test(NAME SequenceCounterTests COMMAND test_sequence_counter)
 
 add_executable(test_zmq_transport
     test_zmq_transport.cpp
+    test_rest_api.cpp
+    test_sensor_system.cpp
 )
 
 target_link_libraries(test_zmq_transport

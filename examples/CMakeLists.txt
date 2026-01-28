@@ -64,7 +64,19 @@ target_link_libraries(integrated_system
 
 target_compile_features(integrated_system PRIVATE cxx_std_20)
 
+# 06_closed_loop_control
+add_executable(closed_loop_example
+    06_closed_loop_control/main.cpp
+)
+
+target_link_libraries(closed_loop_example
+    PRIVATE
+        sensorstreamkit
+)
+
+target_compile_features(closed_loop_example PRIVATE cxx_std_20)
+
 # Install examples (optional)
-install(TARGETS simple_publisher simple_subscriber broker rest_api_example integrated_system
+install(TARGETS simple_publisher simple_subscriber broker rest_api_example integrated_system closed_loop_example
     RUNTIME DESTINATION bin/examples
 )
